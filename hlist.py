@@ -12,37 +12,43 @@
 
 from __future__ import division, print_function
 
-def hselect(list_of_input_files, header_field, field_value, verbose=False):
-    """
-    Returns a list with the name of the files contained at 'list_of_files'
-    whose 'header_field' as a value matching the 'field_value'.
-    
-    @param list_of_input_files: A list containing the name of the files that will be analised.
-    @param header_field: The name of the FIELD that will be used to select the files.
-    @param field_value: The value of the FIELD that will be used to select the files.
-    """
-    from astropy.io.fits import getheader
-    
-    import warnings
-    warnings.filterwarnings('ignore')
- 
-    if field_value.isdigit():
-        field_value = float(field_value);
- 
-    selected_files = []
-    for _file_ in list_of_input_files:
-        try:
-            header = getheader(_file_);
-            value = header.get(header_field);
-            value = value if not value.isdigit() else float(value);  
-        except IOError:
-            continue
+class hselect(list):
+    def __init__(self, input_files, ref_field, ref_value, verbose=False):
+        """
+        Returns a list with the name of the files contained at 'list_of_files'
+        whose 'header_field' as a value matching the 'field_value'.
         
-        if value == field_value:
-            selected_files.append(_file_);
-            if verbose: print(_file_);
-
-    return selected_files
+        @param input_files: A list containing the name of the files that will be analised.
+        @param ref_field: The name of the FIELD that will be used to select the files.
+        @param ref_value: The value of the FIELD that will be used to select the files.
+        """
+        list.__init__(self);
+        self.field = ref_field;
+        self.value = ref_value;
+        
+        from astropy.io.fits import getheader;
+        
+        import warnings;
+        warnings.filterwarnings('ignore');
+        
+        if ref_value.isdigit():
+            ref_value = float(ref_value);
+     
+        for _file_ in input_files:
+            try:
+                header = getheader(_file_);
+                value = header.get(ref_field);
+                try:
+                    value = float(value);
+                except (TypeError, ValueError):
+                    pass
+            except (IOError, IndexError):
+                continue
+            
+            if value == ref_value:
+                self.append(_file_);
+                if verbose: print(_file_);
+        return 
 
 if __name__ == '__main__':
 
