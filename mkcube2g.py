@@ -1,10 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """
-    Build Cube v2f 
+    Build Cube v2g
 
     This script will join the images given as argument to it in a single
-    data-cube. The order of the frames within the data-cube will follow the 
+    data-cube. The order of the frames within the data-cube will follow the
     alpha-numerical order of the input files.
 
     v2g - Changed header.update to header['xxx'] following astropy.io.fits
@@ -22,10 +22,10 @@
         - Inserted 'from __future__' statement.
     v2c - 'memmap' is now an option.
         - 'os' was not being used. It was removed.
-    
-    by Quint, B. C. 
+
+    by Quint, B. C.
     Jan 2014
-    
+
     TODO:
     - Organize the data-cube using cards in the header.
     - If 2D Flat, divide all frames by it. If 3D Flat, match each frame.
@@ -37,13 +37,13 @@ def main():
     """
     This is actually what happens when the program run.
     """
-    
+
     import argparse
     import astropy.io.fits as pyfits
     import numpy
-    import scipy.signal 
+    import scipy.signal
     import sys
-     
+
     # Parsing Arguments -------------------------------------------------------
     parser = argparse.ArgumentParser(description="Build a data-cube from image files.")
     parser.add_argument('-a','--algorithm', metavar='algorithm', type=str, default='average', help="Algorithm used when combining images per frame (average | median | sum)")
@@ -58,94 +58,94 @@ def main():
     parser.add_argument('-s','--skip', metavar='skip', type=int, default=0, help="# of frames to skip at the beggining of the cube")
     parser.add_argument('-x','--xlim', metavar='xlim', type=int, nargs=2, default=[0, None], help="x limits to be used.")
     parser.add_argument('-y','--ylim', metavar='ylim', type=int, nargs=2, default=[0, None], help="y limits to be used.")
-    parser.add_argument('-z','--zlim', metavar='zlim', type=int, nargs=2, default=[0, None], help="z limits to be used.")    
+    parser.add_argument('-z','--zlim', metavar='zlim', type=int, nargs=2, default=[0, None], help="z limits to be used.")
     parser.add_argument('files', metavar='files', type=str, nargs='+', help="input filenames.")
-    
+
     args = parser.parse_args()
-    
+
     v = not args.quiet
-    if v: 
+    if v:
         print("\n mkCube")
         print(" by Bruno Quint (bquint@astro.iag.usp.br)")
         print(" Fev 2014 - Version 2f")
         print("\n Starting program.")
-        
+
     list_of_files = args.files
     list_of_files = sorted(list_of_files)
     number_of_files = len(list_of_files)
-    
-    header = pyfits.getheader(list_of_files[0])    
-    if v: 
+
+    header = pyfits.getheader(list_of_files[0])
+    if v:
         print(" Instrument mode: %s" % header['INSTRMOD'].upper())
         print(" %s files will be used." % number_of_files)
         print(" Ok.")
-        
+
     bin_step = args.bin
     images_per_channel = args.ipc
-    if v: 
+    if v:
         print("\n XY binning is: %d" % bin_step)
         print(" It will be used %d images per channel." % images_per_channel)
-    
-    # Allocating Memory -------------------------------------------------------    
-    if v: 
+
+    # Allocating Memory -------------------------------------------------------
+    if v:
         print("\n Allocating memory.")
-        
+
     xmin, xmax = args.xlim
     ymin, ymax = args.ylim
     zmin, zmax = args.zlim
-    
+
     if args.xlim == [0, None]:
-        imWidth = (header.get("NAXIS1") // bin_step)  
+        imWidth = (header.get("NAXIS1") // bin_step)
     else:
         imWidth = (xmax - xmin) // bin_step
-    
+
     if args.ylim == [0, None]:
-        imHeight = (header.get("NAXIS2") // bin_step) 
+        imHeight = (header.get("NAXIS2") // bin_step)
     else:
         imHeight = (ymax - ymin) // bin_step
-        
-    if args.zlim == [0, None]:    
-        imDepth = number_of_files // images_per_channel  
+
+    if args.zlim == [0, None]:
+        imDepth = number_of_files // images_per_channel
     else:
         imDepth = (zmax - zmin)
-        
+
     mask = numpy.ones((bin_step,bin_step))
-    if v: 
+    if v:
         print(" Dimensions of the cube: ")
         print(" %d pixels wide" % imWidth)
         print(" %d pixels high" % imHeight)
         print(" %d frames in z" % imDepth)
-        print("\n Combining images on each frame using algorithm: %s" % 
+        print("\n Combining images on each frame using algorithm: %s" %
               args.algorithm)
 
-    if args.algorithm == "average": 
+    if args.algorithm == "average":
         combFunction = numpy.average
-    elif args.algorithm == "median": 
+    elif args.algorithm == "median":
         combFunction = numpy.median
-    elif args.algorithm == "sum": 
+    elif args.algorithm == "sum":
         combFunction = numpy.sum
-    else: 
+    else:
         raise IOError, "Wrong algorithm for combining images" + \
             "per frame. Available options are 'average' or 'median'."
-    
-    try: 
+
+    try:
         cube = numpy.zeros((imDepth, imHeight, imWidth), dtype=numpy.float32)
-    except ValueError: 
+    except ValueError:
         sys.stderr.write(" Sorry. The cube to be built is too big.")
         sys.stderr.write(" Try making a smaller one.\n\n")
-        sys.exit()  
-        
-    if v: 
+        sys.exit()
+
+    if v:
         print(" Ok.")
 
     # Loading bias file -------------------------------------------------------
     if args.bias != None:
         print(' Loading "%s" file for BIAS subtraction.' % args.bias)
         bias = pyfits.getdata(args.bias)
-        header.set('BIASFILE', args.bias, 'File used for BIAS subtraction.')    
+        header.set('BIASFILE', args.bias, 'File used for BIAS subtraction.')
     else:
         bias = numpy.zeros((imHeight, imWidth))
-    
+
     # Loading dark file -------------------------------------------------------
     if args.dark != None:
         print(' Loading "%s" file for DARK subtraction.' % args.dark)
@@ -153,7 +153,7 @@ def main():
         header.set('DARKFILE', args.bias, 'File used for DARK subtraction.')
     else:
         dark = numpy.zeros((imHeight, imWidth))
-        
+
     # Loading flat file -------------------------------------------------------
     if args.flat != None:
         print(' Loading "%s" file for FLAT normalization.' % args.flat)
@@ -161,57 +161,57 @@ def main():
         header.set('FLATFILE', args.flat, 'File used for FLAT normalization.')
     else:
         flat = numpy.ones((imHeight, imWidth))
-    
+
     # Building Cube ------------------------------------------------------------
-    
-    if v: 
+
+    if v:
         print("\n Building data-cube.")
-    
+
     if images_per_channel == 1:
         for i in range(imDepth):
             current_file = list_of_files[i + zmin]
-            try: 
+            try:
                 frame = pyfits.getdata(current_file, memmap=args.memmap)
-            except (KeyError, IOError, IndexError): 
+            except (KeyError, IOError, IndexError):
                 print(" Warning: %s file corrupted." % current_file)
                 frame = numpy.zeros((header['NAXIS2'], header['NAXIS1']))
             for s in range(bin_step):
                 frame = frame - bias
                 frame = frame - dark
                 frame = frame / flat
-                cube[i,:,:] += frame[s+ymin:ymax:bin_step,s+xmin:xmax:bin_step] 
+                cube[i,:,:] += frame[s+ymin:ymax:bin_step,s+xmin:xmax:bin_step]
             sys.stdout.write("\r    %d%%" % (100*(i+1)/imDepth))
             sys.stdout.flush()
     else:
         for i in range(imDepth):
-            dummy_cube = numpy.zeros((1, 
-                                      header.get("NAXIS2"), 
-                                      header.get("NAXIS1")), 
+            dummy_cube = numpy.zeros((1,
+                                      header.get("NAXIS2"),
+                                      header.get("NAXIS1")),
                                       dtype=float)
             for j in range(images_per_channel):
                 current_file = list_of_files[images_per_channel * (i + zmin) + j]
-                try: 
+                try:
                     frame = pyfits.getdata(current_file, memmap=args.memmap)
                     frame = frame - bias
                     frame = frame - dark
                     frame = frame / flat
                     frame = numpy.reshape(frame, (1, frame.shape[0], frame.shape[1]))
                     dummy_cube = numpy.append(dummy_cube, frame, axis=0)
-                except (KeyError, IOError, IndexError):            
+                except (KeyError, IOError, IndexError):
                     print(" Warning: %s file corrupted." % current_file)
             frame = combFunction(dummy_cube, axis=0)
             frame = frame[ymin:ymax,xmin:xmax]
             del dummy_cube
-                
+
             if bin_step != 1:
-                frame = scipy.signal.convolve2d(frame, mask,'same')[1::bin_step,1::bin_step]    
+                frame = scipy.signal.convolve2d(frame, mask,'same')[1::bin_step,1::bin_step]
             cube[i,:,:] = frame
             del frame
 
             if v:
                 sys.stdout.write("\r    %d%%" % (100*(i+1)/imDepth))
                 sys.stdout.flush()
-    if v: 
+    if v:
         print(" Ok.\n")
 
     # Fixing header -----------------------------------------------------------
@@ -220,13 +220,13 @@ def main():
     header['CDELT1'] = bin_step
     header['CTYPE1'] = 'LINEAR'
     header['CUNIT1'] = 'PIXEL'
-    
+
     header['CRPIX2'] = 1
     header['CRVAL2'] = ymin + 1
     header['CDELT2'] = bin_step
     header['CTYPE2'] = 'LINEAR'
     header['CUNIT2'] = 'PIXEL'
-    
+
     if header['INSTRMOD'].lower() in ['fp', 'fabry-perot']:
         header['CRPIX3'] = 1
         header['CRVAL3'] = float(header['FPZINIT'])
@@ -234,7 +234,7 @@ def main():
         header['CTYPE3'] = 'LINEAR'
         header['CUNIT3'] = 'BNV'
         header['C3_3'] = float(header['FPZDELT'])
-        
+
     elif header['INSTRMOD'].lower() in ['ibtf']:
         header['CRPIX3'] = 1
         header['CRVAL3'] = float(header['TFAINIT'])
@@ -242,7 +242,7 @@ def main():
         header['CTYPE3'] = 'LINEAR'
         header['CUNIT3'] = 'degrees'
         header['C3_3'] = float(header['TFADELT'])
-    
+
     else:
         print("[!] Invalid BTFI Instrument Mode.")
         print("[!] Dummy calibration will be added to the data-cube.")
@@ -252,30 +252,30 @@ def main():
         header['CTYPE3'] = 'LINEAR'
         header['CUNIT3'] = 'channel'
         header['C3_3'] = 1
-    
-    header.set('', '-- mkcube calibration --', before='CRPIX1')    
-    
+
+    header.set('', '-- mkcube calibration --', before='CRPIX1')
+
     # Writing file ------------------------------------------------------------
     cubename = safesave(args.output)
     pyfits.writeto(cubename, cube, header)
     del cube
     del header
-    if v: 
+    if v:
         print("\n All done.\n")
-    
+
 def safesave(name, overwrite=False, verbose=False):
     """
-    This is a generic method used to check if a file called 'name' already 
+    This is a generic method used to check if a file called 'name' already
     exists. If so, it starts some interaction with the user.
-    
+
     @param name: the name of the file that will be written in the future.
-    
-    @keyword overwrite: if False, this method will interact with the user to 
+
+    @keyword overwrite: if False, this method will interact with the user to
     ask if 'name' file shall be overwritten or if a new name will be given. If
-    True, 'name' file is automatically overwritten.           
-    
-    @keyword verbose: force verbose mode on even when overwrite is automatic. 
-    
+    True, 'name' file is automatically overwritten.
+
+    @keyword verbose: force verbose mode on even when overwrite is automatic.
+
     v1.0.1 - added 'overwrite' keyword.
            - added 'verbose' keyword.
     """
@@ -284,27 +284,27 @@ def safesave(name, overwrite=False, verbose=False):
 
     v = False if (overwrite is True) else True
     if v: print("\n Writing to output file %s" % name)
-    
+
     while os.path.exists(name):
-        
-        if overwrite in ['y', 'Y', True]: 
-            if v or verbose: 
+
+        if overwrite in ['y', 'Y', True]:
+            if v or verbose:
                 print(" Overwriting %s file." % name)
             os.remove(name)
-        
-        elif overwrite in ['', 'n', 'N', False]: 
+
+        elif overwrite in ['', 'n', 'N', False]:
             name = raw_input("   Please, enter a new filename:\n   > ")
-            
-        elif overwrite in ['q']: 
-            if v: 
+
+        elif overwrite in ['q']:
+            if v:
                 print(" Exiting program.")
             sys.exit()
-            
+
         else:
             overwrite = raw_input("   '%s' file exist. Overwrite? (y/[n])"%name)
-            if v: 
+            if v:
                 print(" Writing data-cube to %s" %name)
-        
+
     return name
 
 
