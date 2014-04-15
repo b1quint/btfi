@@ -241,6 +241,7 @@ class PhaseMap:
 
         if self.show:
             pyplot.figure()
+            pyplot.title("Reference Spectrum")
             pyplot.plot(self.z, ref_s, 'ko-', label="Reference spectrum")
             pyplot.grid()
             pyplot.xlabel("z [%s]" % self.units)
@@ -368,10 +369,12 @@ class PhaseMap_FP(PhaseMap):
         self.free_spectral_range = self.get_free_spectral_range()
 
         # Getting reference spectrum ------------------------------------------
-        # self.ref_x, self.ref_y = self.find_reference_pixel()
+        self.ref_x, self.ref_y = self.find_reference_pixel()
+        self.ref_s = self.get_reference_spectrum()
 
-        # self.ref_s = self.get_reference_spectrum()
-        #
+        # Calculate the FWHM --------------------------------------------------
+        self.fwhm = self.get_fwhm()
+
         # if correlation:
         #     self.extract_from = self.use_correlation()
         # else:
@@ -379,6 +382,7 @@ class PhaseMap_FP(PhaseMap):
         #
         # self.phase_map = self.extract_phase_map()
         # self.save()
+
 
     def find_reference_pixel(self):
         """
@@ -397,7 +401,8 @@ class PhaseMap_FP(PhaseMap):
             ref_x, ref_y = self.find_rings_center()
 
         return ref_x, ref_y
-    
+
+
     def find_rings_center(self):
         """
         Method used to find the center of the rings inside a FP data-cube.
@@ -406,6 +411,7 @@ class PhaseMap_FP(PhaseMap):
         # Renaming some variables ---------------------------------------------
         width = self.width
         height = self.height
+        fsr = round(self.free_spectral_range / self.header['C3_3'])
         
         # Choosing the points -------------------------------------------------
         x = (numpy.linspace(0.2, 0.8, 500) * width).astype(int)
@@ -422,34 +428,32 @@ class PhaseMap_FP(PhaseMap):
             pyplot.figure()
 
         for i in range(6):
-            
-            self.print("  Interaction #%d" % i)
-            temp_x = self.data[:, ref_y, x]
-            temp_y = self.data[:, y, ref_x]
-            
-            self.print("  Finding peaks.")
+
+            temp_x = self.data[:fsr, ref_y, x]
+            temp_y = self.data[:fsr, y, ref_x]
+
             temp_x = numpy.argmax(temp_x, axis=0)
             temp_y = numpy.argmax(temp_y, axis=0)
-            
-            # Fitting parabola 
-            self.print("  Fitting parabolas.")
+
             px = scipy.polyfit(x, temp_x, 2)
             py = scipy.polyfit(y, temp_y, 2)
-        
-            # Peak finding using parabola equation
-            self.print("  Calculating peak using parabola coefficients.")
+
             ref_x = round(- px[1] / (2.0 * px[0]))
             ref_y = round(- py[1] / (2.0 * py[0]))
 
             if self.show:
-                pyplot.subplot(3,2,i+1)
-                pyplot.plot(x, temp_x, 'b.')
-                pyplot.plot(x, scipy.polyval(px, x), 'b-')
-                pyplot.plot(y, temp_y, 'r.')
-                pyplot.plot(y, scipy.polyval(py, y), 'r-')
-                pyplot.xticks([]), pyplot.yticks([])
-                pyplot.xlabel("Iteration number %d" %i)
-                pyplot.show()
+                pyplot.title("Finding center of the rings")
+                pyplot.subplot(3,1,i+1)
+                pyplot.plot(x, temp_x, 'b.', alpha=0.25)
+                pyplot.plot(x, scipy.polyval(px, x), 'b-', lw=2)
+                pyplot.plot(y, temp_y, 'r.', alpha=0.25)
+                pyplot.plot(y, scipy.polyval(py, y), 'r-', lw=2)
+                pyplot.gca().yaxis.set_ticklabels([])
+                pyplot.axvline(ref_x, ls='--', c='blue', label='x')
+                pyplot.axvline(ref_y, ls='--', c='red', label='y')
+                pyplot.legend(loc='best')
+                pyplot.grid()
+                pyplot.xlabel("Iteration number %d" %(i+1))
             
             # Selecting valid data
             error_x = numpy.abs(temp_x - scipy.polyval(px, x))
@@ -464,18 +468,26 @@ class PhaseMap_FP(PhaseMap):
             # Choosing when to stop
             if (abs(old_ref_x - ref_x) <= 2) and (abs(old_ref_y - ref_y) <= 2):
                 
-                ref_x = (ref_x - self.header['CRPIX1']) * self.header['CDELT1'] + self.header['CRVAL1']
-                ref_y = (ref_y - self.header['CRPIX2']) * self.header['CDELT2'] + self.header['CRVAL2']
-                self.print(" Rings center found at: [%d, %d]" % (ref_x, ref_y))
-                
+                ref_x = (ref_x - self.header['CRPIX1'] + 1) \
+                        * self.header['CDELT1'] + self.header['CRVAL1']
+
+                ref_y = (ref_y - self.header['CRPIX2']) \
+                        * self.header['CDELT2'] + self.header['CRVAL2']
+
+                if self.verbose:
+                    print(" Rings center found at: [%d, %d]" % (ref_x, ref_y))
+
+                if self.show:
+                    pyplot.show()
+
                 return ref_x, ref_y
             
             else:
                 old_ref_x = ref_x
                 old_ref_y = ref_y
-                
 
-
+        if self.show:
+            pyplot.show()
         print(" Rings center NOT found.")
         
         ref_x = self.header['NAXIS1'] // 2
@@ -486,6 +498,7 @@ class PhaseMap_FP(PhaseMap):
         
         print(" Using [%d, %d]." % (ref_x, ref_y))        
         return ref_x, ref_y
+
 
     def get_free_spectral_range(self):
         """
@@ -536,6 +549,45 @@ class PhaseMap_FP(PhaseMap):
             pyplot.show()
 
         return fsr
+
+    def get_fwhm(self):
+        """
+        Returns the full-width-at-half-maximum.
+        """
+        from scipy.optimize import leastsq
+        from scipy.stats import mode
+
+        z = self.z
+        s = self.ref_s
+        s = s - mode(s)[0]
+        fsr = self.free_spectral_range / self.header['C3_3']
+
+        zz = numpy.linspace(z[0], z[fsr], 1000)
+        ss = interpolate.interp1d(z, s, kind='cubic')
+        sss = ss(zz) - ss(zz).max() / 2
+
+        
+
+        fit_func = lambda p, x: p[0] * numpy.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
+        err_func = lambda p, x, y: y - fit_func(p, x)
+        p = [sss.max(), zz[sss.argmax()], 10]
+        p, _ = leastsq(err_func, p, args=(zz, sss))
+        fwhm1 = 2.35482 * p[2]
+
+
+        if self.show:
+            pyplot.figure()
+            pyplot.title("Measure the FWHM")
+            pyplot.plot(z, s, 'bo')
+            pyplot.plot(zz, ss(zz), 'b-', lw=2)
+            pyplot.plot(zz, sss, 'r-', lw=2)
+            pyplot.plot(zz, fit_func(p, zz), 'g-', lw=2)
+            pyplot.axvline(p[1] - fwhm1 / 2, ls='--', c='green', lw=2)
+            pyplot.axvline(p[1] + fwhm1 / 2, ls='--', c='green', lw=2)
+            pyplot.grid()
+            pyplot.show()
+
+        return
 
 
 #==============================================================================
