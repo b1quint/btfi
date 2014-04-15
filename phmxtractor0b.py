@@ -557,16 +557,15 @@ class PhaseMap_FP(PhaseMap):
         from scipy.optimize import leastsq
         from scipy.stats import mode
 
-        z = self.z
-        s = self.ref_s
-        s = s - mode(s)[0]
         fsr = self.free_spectral_range / self.header['C3_3']
+        z = self.z[:fsr]
+        s = self.ref_s[:fsr]
+        s = s - mode(s)[0]
 
-        zz = numpy.linspace(z[0], z[fsr], 1000)
+
+        zz = numpy.linspace(z[0], z[-1], 1000)
         ss = interpolate.interp1d(z, s, kind='cubic')
         sss = ss(zz) - ss(zz).max() / 2
-
-        
 
         fit_func = lambda p, x: p[0] * numpy.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
         err_func = lambda p, x, y: y - fit_func(p, x)
@@ -574,20 +573,27 @@ class PhaseMap_FP(PhaseMap):
         p, _ = leastsq(err_func, p, args=(zz, sss))
         fwhm1 = 2.35482 * p[2]
 
+        zzz = zz[sss > 0]
+        fwhm2 = zzz.ptp()
 
         if self.show:
             pyplot.figure()
             pyplot.title("Measure the FWHM")
             pyplot.plot(z, s, 'bo')
             pyplot.plot(zz, ss(zz), 'b-', lw=2)
-            pyplot.plot(zz, sss, 'r-', lw=2)
-            pyplot.plot(zz, fit_func(p, zz), 'g-', lw=2)
+            pyplot.plot(zz, sss, 'r-', lw=2, alpha=0.3)
+            pyplot.plot(zz, fit_func(p, zz), 'g-', lw=2, alpha=0.3)
             pyplot.axvline(p[1] - fwhm1 / 2, ls='--', c='green', lw=2)
-            pyplot.axvline(p[1] + fwhm1 / 2, ls='--', c='green', lw=2)
+            pyplot.axvline(p[1] + fwhm1 / 2, ls='--', c='green', lw=2,
+                label='Gauss Fit = %.1f %s' % (fwhm1, self.units))
+            pyplot.axvline(p[1] + fwhm2 / 2, ls='--', c='red', lw=2)
+            pyplot.axvline(p[1] - fwhm2 / 2, ls='--', c='red', lw=2,
+                label='Definition = %.1f %s' % (fwhm2, self.units))
+            pyplot.legend(loc='best')
             pyplot.grid()
             pyplot.show()
 
-        return
+        return fwhm2
 
 
 #==============================================================================
