@@ -3,21 +3,31 @@
 """
     v01a - Original File.
     v01b - Added '-s'/'--show' option.
+         - "--correlation" option default set to FALSE.
+         - Changed all the astropy.io.fits imports to a single import at the
+           beginning of the file.
 """
 from __future__ import division, print_function
 
 import argparse
+import astropy.io.fits as pyfits
+import matplotlib.pyplot as pyplot
+import numpy
 import time
+import scipy
+import scipy.interpolate as interpolate
+import scipy.ndimage as ndimage
 import sys
 
 def main():
     
     # Parse arguments ---------------------------------------------------------
-    parser = argparse.ArgumentParser(description="Extracts the phase-map" + 
-                                     "from a fits file containing a data-cube.")
+    parser = argparse.ArgumentParser(description="Extracts the phase-map" +
+                                     "from a fits file containing a data" +
+                                     "-cube.")
     
-    parser.add_argument('-c', '--correlation', action='store_false', 
-                        help="Use correlation cube? [TRUE]/false")
+    parser.add_argument('-c', '--correlation', action='store_true',
+                        help="Use correlation cube? true/[FALSE]")
     
     parser.add_argument('filename', type=str, help="Input data-cube name.")
     
@@ -25,7 +35,10 @@ def main():
                         help="Name of the output phase-map file.")
     
     parser.add_argument('-q', '--quiet', action='store_true', 
-                        help="Run program quietly.")
+                        help="Run program quietly. true/[FALSE]")
+
+    parser.add_argument('-s', '--show', action='store_true',
+                        help="Show plots used in the process. true/[FALSE]")
     
     args = parser.parse_args()
     
@@ -35,10 +48,11 @@ def main():
         start = time.time()
         print("\n Phase-Map Extractor")
         print(" by Bruno Quint & Fabricio Ferrari")
-        print(" version 0.1a - Jan 2014")
+        print(" version 0.1b - Apr 2014")
         print("\n Extracting phase-map from file: %s" % args.filename)
 
     # Checking input data -----------------------------------------------------
+    # TODO Add a manual option for the case where the instrument was not recognized.
     if v: 
         print(" Checking data-cube for phase-correction.")
         
@@ -52,7 +66,8 @@ def main():
     if mode == 'ibtf':
         PhaseMap_iBTF(args.filename, correlation=args.correlation, verbose=v)
     elif mode == 'fp':
-        PhaseMap_FP(args.filename, correlation=args.correlation, verbose=v)
+        PhaseMap_FP(args.filename, correlation=args.correlation,
+                    show=args.show, verbose=v)
     
     # All done! ---------------------------------------------------------------
     if v:
@@ -140,37 +155,32 @@ def is_btfi_data(filename):
     btfi_data = btfi_data and (header['INSTRUME'].upper() in ['BTFI'])
     return btfi_data  
 
+
+#==============================================================================
 class PhaseMap:
-    def __init__(self, filename, correlation=False, verbose=False):
-        """
-        Creating phase-map.
-        """
-        from astropy.io.fits import getheader
-        
+
+    def __init__(self, filename, correlation=False, show=False, verbose=False):
+
+        # Setting main configuration ------------------------------------------
         self.input_file = filename
-        self.header = getheader(filename)
         self.verbose = verbose
-        self.loading = [' ','-','\\','|','/']
-        
+        self.show = show
+
+        # Reading raw data ----------------------------------------------------
+        self.print(" Loading data.")
+        self.data = pyfits.getdata(filename)
+        self.header = pyfits.getheader(filename)
+        self.print(" Done.")
+
+        # Reading data-cube configuration -------------------------------------
         self.width = self.header['NAXIS1']
         self.height = self.header['NAXIS2']
         self.depth = self.header['NAXIS3']
+
+        # Reading Z calibration for plotting ----------------------------------
+        self.z = self.get_calibration()
         self.units = self.header['CUNIT3']
-        
-        self.print(" File obtained through an %s scan." \
-                   % self.header['INSTRMOD'])
-        
-        self.ref_x, self.ref_y = self.find_reference_pixel()
-        self.ref_s = self.get_reference_spectrum()
-        
-        if correlation:
-            self.extract_from = self.use_correlation()
-        else:
-            self.extract_from = self.input_file
-        
-        self.phase_map = self.extract_phase_map()
-        self.save()
-        
+
         return
     
     def extract_phase_map(self):
@@ -189,9 +199,7 @@ class PhaseMap:
         return phase_map
     
     def find_reference_pixel(self):
-        """
-        Read the reference pixel from header or find it.
-        """
+        """Read the reference pixel from header or find it."""
         if ('PHMREFX' in self.header) and ('PHMREFY' in self.header):
             self.print(" \n Found reference pixel in header.")
             ref_x = self.header['PHMREFX']
@@ -204,16 +212,40 @@ class PhaseMap:
             self.print(" Using [%d, %d]" % (self.ref_x, self.ref_y))
             
         return ref_x, ref_y
-    
+
+    def get_calibration(self):
+        """
+        Return an array with the current calibration.
+        """
+        z = numpy.arange(self.depth)
+        try:
+            # The "+ 1" change from fortran like to c like indexing
+            z = z - self.header['CRPIX3'] + 1
+            z = z * self.header['C3_3']
+            z = z + self.header['CRVAL3']
+
+        except KeyError:
+            print("[!] Calibration in third axis not found.")
+            print("[!] I will ignore this step.")
+
+        return z
+
+
     def get_reference_spectrum(self):
         """
         Get the reference spectrum.
         """ 
-        from astropy.io.fits import getdata
-        
-        ref_s = getdata(self.input_file)[:,self.ref_y, self.ref_x] 
+        ref_s = pyfits.getdata(self.input_file)[:,self.ref_y, self.ref_x]
         ref_s = ref_s / ref_s.max()  # Normalize
         ref_s = ref_s - ref_s.mean() # Remove mean to avoid triangular shape
+
+        if self.show:
+            pyplot.figure()
+            pyplot.plot(self.z, ref_s, 'ko-', label="Reference spectrum")
+            pyplot.grid()
+            pyplot.xlabel("z [%s]" % self.units)
+            pyplot.gca().set_yticklabels([])
+            pyplot.show()
         
         return ref_s
             
@@ -322,55 +354,78 @@ class PhaseMap:
         return
                 
 #==============================================================================
-class PhaseMap_FP(PhaseMap):        
+class PhaseMap_FP(PhaseMap):
+
+    def __init__(self, filename, correlation=False, show=False, verbose=False):
+
+        PhaseMap.__init__(self, filename, correlation=correlation,
+                          show=show, verbose=verbose)
+
+        # This is a Fabry-Perot data-cube. Let's make that clear to the user --
+        self.print("\n Fabry-Perot data ---------------")
+
+        # Measure the free-spectral-range -------------------------------------
+        self.free_spectral_range = self.get_free_spectral_range()
+
+        # Getting reference spectrum ------------------------------------------
+        # self.ref_x, self.ref_y = self.find_reference_pixel()
+
+        # self.ref_s = self.get_reference_spectrum()
+        #
+        # if correlation:
+        #     self.extract_from = self.use_correlation()
+        # else:
+        #     self.extract_from = self.input_file
+        #
+        # self.phase_map = self.extract_phase_map()
+        # self.save()
+
     def find_reference_pixel(self):
         """
         Read the reference pixel from header or find it.
         """
+
         if ('PHMREFX' in self.header) and ('PHMREFY' in self.header):
             self.print(" \n Found reference pixel found in header.")
             ref_x = self.header['PHMREFX']
             ref_y = self.header['PHMREFY']
             self.print(" Using [%d, %d]" % (ref_x, ref_y))
+
         else:
             self.print(" \n Reference pixel NOT found in header.")
             self.print(" Trying to find the center of the rings.")
             ref_x, ref_y = self.find_rings_center()
+
         return ref_x, ref_y
     
     def find_rings_center(self):
         """
         Method used to find the center of the rings inside a FP data-cube.
         """
-        import astropy.io.fits as pyfits
-        import matplotlib.pyplot as plt
-        import numpy
-        import scipy 
-        
-        # Renaming some variables
+
+        # Renaming some variables ---------------------------------------------
         width = self.width
         height = self.height
         
-        # Choosing the points
-        x = (numpy.linspace( 0.2, 0.8, 500) * width).astype(int)
-        y = (numpy.linspace( 0.2, 0.8, 500) * height).astype(int)
+        # Choosing the points -------------------------------------------------
+        x = (numpy.linspace(0.2, 0.8, 500) * width).astype(int)
+        y = (numpy.linspace(0.2, 0.8, 500) * height).astype(int)
         
         ref_x = self.header['NAXIS1'] // 2
         ref_y = self.header['NAXIS2'] // 2
         
-        self.print(" Loading raw data.")
-        data = pyfits.getdata(self.input_file)
-        self.print(" Done.")
-        
         self.print(" Start center finding.")
         old_ref_x = ref_x
         old_ref_y = ref_y
-        
-        for i in range(10):
+
+        if self.show:
+            pyplot.figure()
+
+        for i in range(6):
             
-            self.print(" Interaction #%d" % i)
-            temp_x = data[:, ref_y, x]
-            temp_y = data[:, y, ref_x]
+            self.print("  Interaction #%d" % i)
+            temp_x = self.data[:, ref_y, x]
+            temp_y = self.data[:, y, ref_x]
             
             self.print("  Finding peaks.")
             temp_x = numpy.argmax(temp_x, axis=0)
@@ -382,24 +437,26 @@ class PhaseMap_FP(PhaseMap):
             py = scipy.polyfit(y, temp_y, 2)
         
             # Peak finding using parabola equation
-            self.print("  Calculating peak using parabola coheficients.")
+            self.print("  Calculating peak using parabola coefficients.")
             ref_x = round(- px[1] / (2.0 * px[0]))
             ref_y = round(- py[1] / (2.0 * py[0]))
-            
-#             plt.subplot(3,2,i+1)
-#             plt.plot(x, temp_x, 'b.')
-#             plt.plot(x, scipy.polyval(px, x), 'b-')
-#             plt.plot(y, temp_y, 'r.')
-#             plt.plot(y, scipy.polyval(py, y), 'r-')
-#             plt.xticks([]), plt.yticks([])
-#             plt.xlabel("Interation number %d" %i)
+
+            if self.show:
+                pyplot.subplot(3,2,i+1)
+                pyplot.plot(x, temp_x, 'b.')
+                pyplot.plot(x, scipy.polyval(px, x), 'b-')
+                pyplot.plot(y, temp_y, 'r.')
+                pyplot.plot(y, scipy.polyval(py, y), 'r-')
+                pyplot.xticks([]), pyplot.yticks([])
+                pyplot.xlabel("Iteration number %d" %i)
+                pyplot.show()
             
             # Selecting valid data
             error_x = numpy.abs(temp_x - scipy.polyval(px, x))
             error_y = numpy.abs(temp_y - scipy.polyval(py, y))
                         
-            cond_x = numpy.where(error_x <= error_x.std(), True, False)
-            cond_y = numpy.where(error_y <= error_y.std(), True, False)
+            cond_x = numpy.where(error_x <= 3 * error_x.std(), True, False)
+            cond_y = numpy.where(error_y <= 3 * error_y.std(), True, False)
             
             x = x[cond_x]
             y = y[cond_y]
@@ -417,7 +474,8 @@ class PhaseMap_FP(PhaseMap):
                 old_ref_x = ref_x
                 old_ref_y = ref_y
                 
-#         plt.show()
+
+
         print(" Rings center NOT found.")
         
         ref_x = self.header['NAXIS1'] // 2
@@ -428,7 +486,58 @@ class PhaseMap_FP(PhaseMap):
         
         print(" Using [%d, %d]." % (ref_x, ref_y))        
         return ref_x, ref_y
-                
+
+    def get_free_spectral_range(self):
+        """
+        Method created to find the Free-Spectral-Range of a calibration
+        data-cube. Be sure that you scanned more than a single FRS.
+        """
+        now = time.time()
+        self.print(" Finding free-spectral-range...")
+
+        if self.show:
+            pyplot.figure()
+
+        # First frame is the reference frame
+        ref_frame = self.data[0,:,:]
+
+        # Subtract all frames from the first frame
+        data = self.data - ref_frame
+
+        # Get the absolute value
+        data = numpy.abs(data)
+
+        # Sum over the spatial directions
+        data = data.sum(axis=2)
+        data = data.sum(axis=1)
+
+        # Interpolate data
+        s = interpolate.UnivariateSpline(self.z, data, k=3)
+        z = numpy.linspace(self.z[5:].min(), self.z.max(), 1000)
+
+        # Find the free-spectral-range
+        fsr = z[numpy.argmin(s(z))] - self.z.min()
+
+        if self.verbose:
+            print("  FSR = %.1f %s" % (fsr, self.units))
+            print("  Done in %.2f s" % (time.time() - now))
+
+        # Plot to see how it goes
+        if self.show:
+            pyplot.title("Finding the Free-Spectral-Range")
+            pyplot.plot(self.z, data, 'bo', label='Measured data')
+            pyplot.plot(z, s(z), 'r-', lw=2, label='3rd deg spline fitting')
+            pyplot.xlabel("z [%s]" % self.units)
+            pyplot.axvline(x=(fsr + self.z.min()), ls='--', c='red',
+                           label='Free-Spectral-Range \nat z = %.1f' % fsr)
+            pyplot.legend(loc='best')
+            pyplot.gca().yaxis.set_ticklabels([])
+            pyplot.grid()
+            pyplot.show()
+
+        return fsr
+
+
 #==============================================================================
 class PhaseMap_iBTF(PhaseMap):
     pass
