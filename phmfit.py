@@ -232,7 +232,7 @@ def main():
         X, Y = numpy.meshgrid(x, y)
         R = numpy.sqrt((X - ref_x) ** 2 + (Y - ref_y) ** 2)
         Z = fit_func(p, R)
-        Z = Z - phmap[ref_y, ref_x]
+        Z = Z - Z[ref_y, ref_x]
         phmap = phmap - phmap[ref_y, ref_x]
         
         fname = header['PHMREFF']

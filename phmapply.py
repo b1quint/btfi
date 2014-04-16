@@ -169,7 +169,10 @@ def main():
         try:
             if v: 
                 print(" Reading free-spectral-range from cube header.")
-            FSR = phase_map.header['PHMFITSR']
+            # TODO add an option to use the FSR found while extracting
+            # TODO the phase-map or while fitting it.
+            # FSR = phase_map.header['PHMFITSR']
+            FSR = phase_map.header['PHMFSR']
             if v:
                 print(" Free Spectral Range = %.2f %s" % (FSR, units))
         except (KeyError):
