@@ -2,6 +2,8 @@
 # -*- coding: utf8 -*-
 """
     v1a - Phase extraction for Fabry-Perot.
+    2014.04.16 15:45 - Created an exception for errors while trying to access
+                       'CRPIX%' cards on cube's header.
 """
 from __future__ import division, print_function
 
@@ -573,13 +575,16 @@ class PhaseMap_FP(PhaseMap):
             # Choosing when to stop
             if (abs(old_ref_x - ref_x) <= 2) and (abs(old_ref_y - ref_y) <= 2):
 
-                # If the cube was binned this will be useful
-                ref_x = (ref_x - self.header['CRPIX1'] + 1) \
-                        * self.header['CDELT1'] + self.header['CRVAL1']
+                try:
+                    # If the cube was binned this will be useful
+                    ref_x = (ref_x - self.header['CRPIX1'] + 1) \
+                            * self.header['CDELT1'] + self.header['CRVAL1']
 
-                # If the cube was binned this will be useful
-                ref_y = (ref_y - self.header['CRPIX2']) \
-                        * self.header['CDELT2'] + self.header['CRVAL2']
+                    # If the cube was binned this will be useful
+                    ref_y = (ref_y - self.header['CRPIX2']) \
+                            * self.header['CDELT2'] + self.header['CRVAL2']
+                except KeyError:
+                    pass
 
                 if self.verbose:
                     print(" Rings center found at: [%d, %d]" % (ref_x, ref_y))
@@ -604,8 +609,13 @@ class PhaseMap_FP(PhaseMap):
         ref_y = self.header['NAXIS2'] // 2
 
         # If the cube was binned this will be useful
-        ref_x = (ref_x - self.header['CRPIX1']) * self.header['CDELT1'] + self.header['CRVAL1']
-        ref_y = (ref_y - self.header['CRPIX2']) * self.header['CDELT2'] + self.header['CRVAL2']
+        try:
+            ref_x = (ref_x - self.header['CRPIX1']) \
+                    * self.header['CDELT1'] + self.header['CRVAL1']
+            ref_y = (ref_y - self.header['CRPIX2']) \
+                    * self.header['CDELT2'] + self.header['CRVAL2']
+        except:
+            pass
 
         if self.verbose:
             print(" Done in %.2f s" % (time.time() - now))
@@ -715,7 +725,8 @@ class PhaseMap_FP(PhaseMap):
         h['PHMREFF'] = (self.input_file, 'Original file')
         h['PHMTYPE'] = 'observed'
         h['PHMUNIT'] = self.header['CUNIT3']
-        h['PHMFSR'] = (fsr, 'Free-spectral-range in %s units' % self.units)
+        h['PHMFSR'] = (round(fsr, 2),
+                       'Free-spectral-range in %s units' % self.units)
         h['PHMSAMP'] = (self.header['C3_3'], 'Used sample [%s / channel].'
                                              % self.units)
 

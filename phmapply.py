@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """
-    Phase-Map Apply - A script to apply a phase-map on a data-cube.
+     Phase-Map Apply - A script to apply a phase-map on a data-cube.
      by Bruno Quint (bquint@astro.iag.usp.br) 
      and Fabricio Ferrari (fabricio@ferrari.pro.br)
      version 0.0 - Feb 2014
@@ -163,7 +163,7 @@ def main():
         ref_x = phase_map.header['PHMREFX']
         ref_y = phase_map.header['PHMREFY']
         units = phase_map.header['PHMUNIT']
-        sample = float(data_cube.header['FPZDELT'])
+        sample = float(phase_map.header['PHMSAMP'])
         
         # Reading the Free-Spectral-Range --------------------------------------
         try:
@@ -171,17 +171,19 @@ def main():
                 print(" Reading free-spectral-range from cube header.")
             # TODO add an option to use the FSR found while extracting
             # TODO the phase-map or while fitting it.
+            # TODO or even to give the option for the user to enter it.
             # FSR = phase_map.header['PHMFITSR']
             FSR = phase_map.header['PHMFSR']
             if v:
                 print(" Free Spectral Range = %.2f %s" % (FSR, units))
+
         except (KeyError):
             print(" Please, enter the free-spectral-range in %s units" % units)
             FSR = input(" > ")
         
-        FSR = FSR / sample # From BCV to Channels
+        FSR = round(FSR / sample) # From BCV to Channels
         if v:
-            print(" Free-Spectral-Range is %.3f channels" % FSR)
+            print(" Free-Spectral-Range is %d channels" % FSR)
         
         fsr = FSR * args.npoints # From Channels to nPoints
         fsr = int(round(fsr))
