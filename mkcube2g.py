@@ -67,7 +67,7 @@ def main():
     if v:
         print("\n mkCube")
         print(" by Bruno Quint (bquint@astro.iag.usp.br)")
-        print(" Fev 2014 - Version 2f")
+        print(" Apr 2014 - Version 2g")
         print("\n Starting program.")
 
     list_of_files = args.files

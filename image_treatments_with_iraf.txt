@@ -1,0 +1,504 @@
+First go to the package ccdred
+
+noao
+imred
+ccdred
+
+do epar ccdproc
+
+Set the following parameters
+
+                                      I R A F  
+                       Image Reduction and Analysis Facility
+PACKAGE = ccdred
+   TASK = ccdproc
+
+images  = @list_raw_bias.dat  ) List of CCD images to correct
+(output = @list_braw_bias.dat ) List of output CCD images
+(ccdtype=                     ) CCD image type to correct
+(max_cac=                    0) Maximum image caching memory (in Mbytes)
+(noproc =                   no) List processing steps only?
+
+(fixpix =                   no) Fix bad CCD lines and columns?
+(oversca=                  yes) Apply overscan strip correction?
+(trim   =                   no) Trim the image?
+(zerocor=                   no) Apply zero level correction?
+(darkcor=                   no) Apply dark count correction?
+(flatcor=                   no) Apply flat field correction?
+(illumco=                   no) Apply illumination correction?
+(fringec=                   no) Apply fringe correction?
+(readcor=                   no) Convert zero level image to readout correction?
+(scancor=                   no) Convert flat field image to scan correction?
+
+(readaxi=                 line) Read out axis (column|line)
+(fixfile=                     ) File describing the bad lines and columns
+(biassec=   [1629:1640,1:1616]) Overscan strip image section
+(trimsec=                     ) Trim data section
+(zero   =                     ) Zero level calibration image
+(dark   =                     ) Dark count calibration image
+(flat   =                     ) Flat field images
+(illum  =                     ) Illumination correction images
+(fringe =                     ) Fringe correction images
+(minrepl=                   1.) Minimum flat field value
+(scantyp=            shortscan) Scan type (shortscan|longscan)
+(nscan  =                    1) Number of short scan lines
+
+(interac=                   no) Fit overscan interactively?
+(functio=              spline3) Fitting function
+(order  =                    3) Number of polynomial terms or spline pieces
+(sample =                    *) Sample points to fit
+(naverag=                    1) Number of sample points to combine
+(niterat=                    2) Number of rejection iterations
+(low_rej=                   3.) Low sigma rejection factor
+(high_re=                  2.5) High sigma rejection factor
+(grow   =                   0.) Rejection growing radius
+(mode   =                   ql)
+
+This creates files obiasA0001-0050.fits
+
+Then combine these using imcombine
+
+PACKAGE = immatch
+   TASK = imcombine
+
+input   =  @list_braw_bias.dat  List of images to combine
+output  =       strucBIAS.fits  List of output images
+(headers=                     ) List of header files (optional)
+(bpmasks=                     ) List of bad pixel masks (optional)
+(rejmask=                     ) List of rejection masks (optional)
+(nrejmas=                     ) List of number rejected masks (optional)
+(expmask=                     ) List of exposure masks (optional)
+(sigmas =                     ) List of sigma images (optional)
+(imcmb  =                   $I) Keyword for IMCMB keywords
+(logfile=               STDOUT) Log file
+
+(combine=              average) Type of combine operation
+(reject =               minmax) Type of rejection
+(project=                   no) Project highest dimension of input images?
+(outtype=                 real) Output image pixel datatype
+(outlimi=                     ) Output limits (x1 x2 y1 y2 ...)
+(offsets=                 none) Input image offsets
+(masktyp=                 none) Mask type
+(maskval=                    0) Mask value
+(blank  =                   0.) Value if there are no pixels
+
+(scale  =                 none) Image scaling
+(zero   =                 none) Image zero point offset
+(weight =                 none) Image weights
+(statsec=                     ) Image section for computing statistics
+(expname=                     ) Image header exposure time keyword
+
+(lthresh=                INDEF) Lower threshold
+(hthresh=                INDEF) Upper threshold
+(nlow   =                    1) minmax: Number of low pixels to reject
+(nhigh  =                    5) minmax: Number of high pixels to reject
+(nkeep  =                    1) Minimum to keep (pos) or maximum to reject (neg)
+(mclip  =                  yes) Use median in sigma clipping algorithms?
+(lsigma =                   3.) Lower sigma clipping factor
+(hsigma =                   3.) Upper sigma clipping factor
+(rdnoise=                   0.) ccdclip: CCD readout noise (electrons)
+(gain   =                   1.) ccdclip: CCD gain (electrons/DN)
+(snoise =                   0.) ccdclip: Sensitivity noise (fraction)
+(sigscal=                  0.1) Tolerance for sigma clipping scaling corrections
+(pclip  =                 -0.5) pclip: Percentile clipping parameter
+(grow   =                   0.) Radius (pixels) for neighbor rejection
+(mode   =                   ql)
+
+Then you created strucBias.fits
+
+Then use again ccdproc to process the darks
+
+SCKAGE = ccdred
+   TASK = ccdproc
+
+images  =  @list_raw_darks.dat  List of CCD images to correct
+(output = @list_soraw_darks.dat) List of output CCD images
+(ccdtype=                     ) CCD image type to correct
+(max_cac=                    0) Maximum image caching memory (in Mbytes)
+(noproc =                   no) List processing steps only?
+
+(fixpix =                   no) Fix bad CCD lines and columns?
+(oversca=                  yes) Apply overscan strip correction?
+(trim   =                   no) Trim the image?
+(zerocor=                  yes) Apply zero level correction?
+(darkcor=                   no) Apply dark count correction?
+(flatcor=                   no) Apply flat field correction?
+(illumco=                   no) Apply illumination correction?
+(fringec=                   no) Apply fringe correction?
+(readcor=                   no) Convert zero level image to readout correction?
+(scancor=                   no) Convert flat field image to scan correction?
+
+(readaxi=                 line) Read out axis (column|line)
+(fixfile=                     ) File describing the bad lines and columns
+(biassec=   [1629:1640,1:1616]) Overscan strip image section
+(trimsec=                     ) Trim data section
+(zero   =       strucBias.fits) Zero level calibration image
+(dark   =                     ) Dark count calibration image
+(flat   =                     ) Flat field images
+(illum  =                     ) Illumination correction images
+(fringe =                     ) Fringe correction images
+(minrepl=                   1.) Minimum flat field value
+(scantyp=            shortscan) Scan type (shortscan|longscan)
+(nscan  =                    1) Number of short scan lines
+
+(interac=                   no) Fit overscan interactively?
+(functio=              spline3) Fitting function
+(order  =                    3) Number of polynomial terms or spline pieces
+(sample =                    *) Sample points to fit
+(naverag=                    1) Number of sample points to combine
+(niterat=                    2) Number of rejection iterations
+(low_rej=                   3.) Low sigma rejection factor
+(high_re=                  2.5) High sigma rejection factor
+(grow   =                   0.) Rejection growing radius
+(mode   =                   ql)
+
+
+Here you will create images called sodarrk0001-0020.fits
+
+PACKAGE = immatch
+   TASK = imcombine
+
+input   = @list_soraw_darks.dat  List of images to combine
+output  =   soDARK20s_OFF.fits  List of output images
+(headers=                     ) List of header files (optional)
+(bpmasks=                     ) List of bad pixel masks (optional)
+(rejmask=                     ) List of rejection masks (optional)
+(nrejmas=                     ) List of number rejected masks (optional)
+(expmask=                     ) List of exposure masks (optional)
+(sigmas =                     ) List of sigma images (optional)
+(imcmb  =                   $I) Keyword for IMCMB keywords
+(logfile=               STDOUT) Log file
+
+(combine=              average) Type of combine operation
+(reject =              sigclip) Type of rejection
+(project=                   no) Project highest dimension of input images?
+(outtype=                 real) Output image pixel datatype
+(outlimi=                     ) Output limits (x1 x2 y1 y2 ...)
+(offsets=                 none) Input image offsets
+(masktyp=                 none) Mask type
+(maskval=                    0) Mask value
+(blank  =                   0.) Value if there are no pixels
+
+(scale  =                 none) Image scaling
+(zero   =                 none) Image zero point offset
+(weight =                 none) Image weights
+(statsec=                     ) Image section for computing statistics
+(expname=                     ) Image header exposure time keyword
+
+(lthresh=                INDEF) Lower threshold
+(hthresh=                INDEF) Upper threshold
+(nlow   =                    3) minmax: Number of low pixels to reject
+(nhigh  =                    3) minmax: Number of high pixels to reject
+(nkeep  =                   10) Minimum to keep (pos) or maximum to reject (neg)
+(mclip  =                  yes) Use median in sigma clipping algorithms?
+(lsigma =                   4.) Lower sigma clipping factor
+(hsigma =                   4.) Upper sigma clipping factor
+(rdnoise=                   0.) ccdclip: CCD readout noise (electrons)
+(gain   =                   1.) ccdclip: CCD gain (electrons/DN)
+(snoise =                   0.) ccdclip: Sensitivity noise (fraction)
+(sigscal=                  0.1) Tolerance for sigma clipping scaling corrections
+(pclip  =                 -0.5) pclip: Percentile clipping parameter
+(grow   =                   0.) Radius (pixels) for neighbor rejection
+(mode   =                   ql)
+
+Now you created soDARK20s_OFF.fits
+
+To see a histogram of the dark do imhistogram soDARK20s_OFF.fits
+As you can see, it clusters around zero with 10^5 pixels around zero
+
+Now do epar ccdproc again to subtract the darcs, bias and overscan region of the flats
+
+PACKAGE = ccdred
+   TASK = ccdproc
+
+images  =  @list_raw_flats.dat  List of CCD images to correct
+(output = @list_dsoraw_flats.dat) List of output CCD images
+(ccdtype=                     ) CCD image type to correct
+(max_cac=                    0) Maximum image caching memory (in Mbytes)
+(noproc =                   no) List processing steps only?
+
+(fixpix =                   no) Fix bad CCD lines and columns?
+(oversca=                  yes) Apply overscan strip correction?
+(trim   =                   no) Trim the image?
+(zerocor=                  yes) Apply zero level correction?
+(darkcor=                  yes) Apply dark count correction?
+(flatcor=                   no) Apply flat field correction?
+(illumco=                   no) Apply illumination correction?
+(fringec=                   no) Apply fringe correction?
+(readcor=                   no) Convert zero level image to readout correction?
+(scancor=                   no) Convert flat field image to scan correction?
+
+(readaxi=                 line) Read out axis (column|line)
+(fixfile=                     ) File describing the bad lines and columns
+(biassec=   [1629:1640,1:1616]) Overscan strip image section
+(trimsec=                     ) Trim data section
+(zero   =       strucBias.fits) Zero level calibration image
+(dark   =   soDARK20s_OFF.fits) Dark count calibration image
+(flat   =                     ) Flat field images
+(illum  =                     ) Illumination correction images
+(fringe =                     ) Fringe correction images
+(minrepl=                   1.) Minimum flat field value
+(scantyp=            shortscan) Scan type (shortscan|longscan)
+(nscan  =                    1) Number of short scan lines
+
+(interac=                   no) Fit overscan interactively?
+(functio=              spline3) Fitting function
+(order  =                    3) Number of polynomial terms or spline pieces
+(sample =                    *) Sample points to fit
+(naverag=                    1) Number of sample points to combine
+(niterat=                    2) Number of rejection iterations
+(low_rej=                   3.) Low sigma rejection factor
+(high_re=                  2.5) High sigma rejection factor
+(grow   =                   0.) Rejection growing radius
+(mode   =                   ql)
+
+This will give you the dsoflats0001-00031.fits
+
+Now combine the flats with imcombine
+
+epar imcombine
+
+PACKAGE = immatch
+   TASK = imcombine
+
+input   = @list_dsoraw_flats.dat  List of images to combine
+output  =      dsoFLAT20s.fits  List of output images
+(headers=                     ) List of header files (optional)
+(bpmasks=                     ) List of bad pixel masks (optional)
+(rejmask=                     ) List of rejection masks (optional)
+(nrejmas=                     ) List of number rejected masks (optional)
+(expmask=                     ) List of exposure masks (optional)
+(sigmas =                     ) List of sigma images (optional)
+(imcmb  =                   $I) Keyword for IMCMB keywords
+(logfile=               STDOUT) Log file
+
+(combine=              average) Type of combine operation
+(reject =              sigclip) Type of rejection
+(project=                   no) Project highest dimension of input images?
+(outtype=                 real) Output image pixel datatype
+(outlimi=                     ) Output limits (x1 x2 y1 y2 ...)
+(offsets=                 none) Input image offsets
+(masktyp=                 none) Mask type
+(maskval=                    0) Mask value
+(blank  =                   0.) Value if there are no pixels
+
+(scale  =                 mode) Image scaling
+(zero   =                 none) Image zero point offset
+(weight =                 none) Image weights
+(statsec=   [250:1300,250:1500) Image section for computing statistics
+(expname=                     ) Image header exposure time keyword
+
+(lthresh=                INDEF) Lower threshold
+(hthresh=                INDEF) Upper threshold
+(nlow   =                    3) minmax: Number of low pixels to reject
+(nhigh  =                    3) minmax: Number of high pixels to reject
+(nkeep  =                   10) Minimum to keep (pos) or maximum to reject (neg)
+(mclip  =                  yes) Use median in sigma clipping algorithms?
+(lsigma =                   4.) Lower sigma clipping factor
+(hsigma =                   4.) Upper sigma clipping factor
+(rdnoise=                   0.) ccdclip: CCD readout noise (electrons)
+(gain   =                   1.) ccdclip: CCD gain (electrons/DN)
+(snoise =                   0.) ccdclip: Sensitivity noise (fraction)
+(sigscal=                  0.1) Tolerance for sigma clipping scaling corrections
+(pclip  =                 -0.5) pclip: Percentile clipping parameter
+(grow   =                   0.) Radius (pixels) for neighbor rejection
+(mode   =                   ql)
+
+This creates dsoFLAT20s.fits
+
+Then do imstat dsoFLAT20s.fits in the main region of work
+
+imstat dsoFLAT20s.fits[250:1250,250:1500]
+image  mean stddev min max midpt mode
+
+dsoFLAT20s  2640 43.5 1482 2801 2647
+
+imhistogram dsoFLAT20s.fits[250:1250,250:1500]
+
+We dont find a very simetric diagram, we tried a smaller area
+
+350:1150, 350:1400 also not symmetric
+
+400:1150,400:1400 also not symmetric
+
+imhistogram dsoFLAT[400:1000,400:1000] is finally symmetric
+
+imstat dsoFLAT20s.fits[400:1000,400:1000]
+    2637 31.5 1482 2742 2640
+
+Even more simmetric is 520:1100,575:1200]
+
+imstat 520:1100, 575:1200
+
+2663 24.28 1482 2776 2665 2667
+
+imarith dsoFLAT20s.fits / 2663. ndsoFLAT20s.fits
+
+Then build a mask with 1's where the flat is 0.85 or higher
+or zeros elsewhere.
+
+epar imexprg
+
+a<0.85 ? 0 : 1
+maskFlat.fits
+
+outtype = int
+refim=auto
+
+:go
+
+
+This creates a mask with 1's and 0's, where the 0's are
+the place we should not consider given the bad vignetting 
+is making us lose more than 15% of the signal
+
+Now work with the biason for subtracting first the overscan region
+
+                                      I R A F  
+                       Image Reduction and Analysis Facility
+PACKAGE = ccdred
+   TASK = ccdproc
+
+images  = @biason.dat           List of CCD images to correct
+(output = @obiason.dat        ) List of output CCD images
+(ccdtype=                     ) CCD image type to correct
+(max_cac=                    0) Maximum image caching memory (in Mbytes)
+(noproc =                   no) List processing steps only?
+
+(fixpix =                   no) Fix bad CCD lines and columns?
+(oversca=                  yes) Apply overscan strip correction?
+(trim   =                   no) Trim the image?
+(zerocor=                   no) Apply zero level correction?
+(darkcor=                   no) Apply dark count correction?
+(flatcor=                   no) Apply flat field correction?
+(illumco=                   no) Apply illumination correction?
+(fringec=                   no) Apply fringe correction?
+(readcor=                   no) Convert zero level image to readout correction?
+(scancor=                   no) Convert flat field image to scan correction?
+
+(readaxi=                 line) Read out axis (column|line)
+(fixfile=                     ) File describing the bad lines and columns
+(biassec= [1629:1640,1:1616]  ) Overscan strip image section
+(trimsec=                     ) Trim data section
+(zero   =                     ) Zero level calibration image
+(dark   =                     ) Dark count calibration image
+(flat   =                     ) Flat field images
+(illum  =                     ) Illumination correction images
+(fringe =                     ) Fringe correction images
+(minrepl=                   1.) Minimum flat field value
+(scantyp=            shortscan) Scan type (shortscan|longscan)
+(nscan  =                    1) Number of short scan lines
+
+(interac=                   no) Fit overscan interactively?
+(functio=                spline3) Fitting function
+(order  =                    1) Number of polynomial terms or spline pieces
+(sample =                    *) Sample points to fit
+(naverag=                    1) Number of sample points to combine
+(niterat=                    2) Number of rejection iterations
+(low_rej=                   3.) Low sigma rejection factor
+(high_re=                   2.5) High sigma rejection factor
+(grow   =                   0.) Rejection growing radius
+(mode   =                   ql)
+
+epar imcombine
+
+@obiason.dat
+structBIASON.fits
+average
+minmax
+scale none
+statsec  
+nlow 1
+nhigh 5
+nkeep -6
+
+created structBiasON.fits
+
+now
+
+epar ccdproc
+
+to process the darks
+
+@dark5s.dat
+@sodark5s.dat
+overscan yes
+zerocor yes
+all others no
+biassec [1629:1640,1:1616]
+zero structBiasON.fits
+naverage 1
+niterat 2
+low_rej 3
+high_re 2.5
+
+This will create files sodarkB0001-0020.fits
+
+Now combine the 5s dark images
+
+epar imcombine
+@sodark5s.dat or so//@dark5s.dat
+soDARK5s_ON.fits
+combine=average
+reject avsigclip
+statsec = 
+lsigma = 4
+hsigma 4
+
+:go
+
+This created soDARK5s_ON.fits 
+
+imstat soDARK5s_ON.fits
+
+imhistogram soDARK5s_ON.fits
+
+imhistogram soDARK5s_ON.fits z2=1000
+
+multiply the mask by the soDARK5s_ON.fits and all the bad numbers
+disappear
+
+The dark5s looks fine in the regions that are good according to
+the mask
+
+Now the final operation on the image, to correct for everything 
+for the 30Dor images
+
+make a file with scanA* and scanB* images
+
+epar ccdproc
+@30dorscans.dat
+fdso//@30dorscans.dat
+overscan  yes
+zerocor yes
+darkcor yes
+flatcor yes
+otherwise say no to all
+
+biasec [1629:1640,1:1616]
+zero structBIASON.fits
+dark soDARK5s_ON.fits
+flat ndsoFLAT20s.fits
+
+
+spline3
+3
+*
+1
+2
+3
+2.5
+
+:go
+
+You now created fdso30Dor*Scan*.fits which are all the corrected
+files, ready for making the cube
+
+make a file with all the files fdso30DorScans*
+
+imarith @fdsoScans.dat * maskFlat85.fits m//@fdsoScans.dat
+
+
+When you want to rename lots of files do:
+
+ls -1 scanA0* | awk '{s=$1;x=sub(/scanA/,"30DorA",s);print "mv",$1,s}'

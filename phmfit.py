@@ -195,7 +195,6 @@ def main():
 
         # Tell me the limits to fits the first parabola
         where = numpy.argmin(numpy.abs(r[dz_abs >= FSR / 2][0] - r))
-        print(where)
 
         # where = numpy.argmin(dz_sign) if sign > 0 else numpy.argmax(dz_sign)
         # print(where)

@@ -1,0 +1,68 @@
+BTFI Data-Reduction Pipeline
+
+Data-reduction pipeline created to deal with BTFI data. It is under development and the main goal of this file is put
+together all the steps needed to get science data. The ideal is that the data-reduction process is modular, so each
+module can be run individually and interaction mode or automatic mode must also be an option.
+
+All the methods and classes and libraries and everything shall be written using Python and its standard packages. This
+is a requirement. Another requirement is that each module/class/etc must be documented, easy to use and easy to install.
+
+By Bruno Quint - v0.1 - November 2013
+
+ Milestones:
+ 1. Data-quality
+ 1.1. Check folders for BIAS files.
+ 1.2. Check folders for DARK files.
+ 1.3. Check folders for FLAT files.
+ 1.4. Check folders for CALIBRATION files.
+ 1.5. Check folders for SCIENCE files.
+
+ 2. Choose between --reduce-it-all-- or --reduce-me-only--.
+ 2.1. Reduce it all: this option will reduce all the science data obtained in a single observing night.
+ 2.2. Reduce me only: this option will let the user to choose a single object to be reduced and data-reduction pipeline
+                      will run according to this data.
+
+ 3. BIAS correction.
+ 3.1. Combine BIAS files using median and sigclip algorithm.
+ 3.2. Subtract BIAS files from all DARK, FLAT, CALIBRATION and SCIENCE files.
+ 3.3. Update DARK, FLAT, CALIBRATION and SCIENCE files header.
+
+ 4. DARK correction.
+ 4.1. Combine DARK files using median and sigclip algorithm.
+ 4.2. Subtract DARK files from FLAT, CALIBRATION and SCIENCE files which has same exposure times (EXPTIME).
+ 4.3. Update FLAT, CALIBRATION and SCIENCE files header.
+
+ 5. FLAT Corrections
+ 5.1. Choose between --correct-by-frame-- and --correct-it-all--
+ ---- Correct by frame: all the FLAT corrections must be applied to files which has same configuration.
+ ---- Correct it all: average all the FLAT obtained and same FLAT correction will be applied to all files.
+ 5.2. Combine images depending on the option above using median and sigclip.
+ 5.3. Divide combined images by their median value for normalization.
+ 5.4. Correct pixels that have values that are very far from 1.0 (0.9 - 1.1) substituting their value for 1.0.
+ 5.5. Apply FLAT correction to CALIBRATION and SCIENCE files dividing them by the properly corrected FLAT file.
+ 5.6. Update CALIBRATION and SCIENCE header.
+
+ 6. CALIBRATION
+ 6.1. Mount data-cubes using CALIBRATION files for each configuration.
+ 6.2. If data if a FPDATA, look for a frame that has rings and find its center.
+      If not, ask used if a reference pixel will be used.
+      Else, reference pixel will be the pixel [width/2, height/2]
+ 6.3. Get spectrum centered on the reference pixel and measure how many emission lines it has.
+ 6.4. Measure free-spectral-range in [channel] units and in instrument units:
+      [bnv] if FPDATA
+      [degrees] else.
+ 6.5. PHASEMAP FINDING: Isolate one line and measure how its center along the field choosing between:
+      fastfit: get the displacement of this line in a given number of pixels along the field and fit the phase-map.
+      measure: measure pixel-by-pixel the displacement of this line.
+      A phase-map in [channels] and a phase-map in [bnv]/[degrees] have to be returned after this step.
+ 6.6. WAVELENGTH CALIBRATION: Use the spectrum extracted from the reference pixel and get line identification from user
+      with:
+      - line-position [bnv]/[degrees],
+      - wavelength [angstroms] or [nanometers] or [km/s],
+      - relative-order [--].
+ 6.6.1. Generate wavelength calibration header keywords to update CALIBRATION and SCIENCE files.
+
+ 7. SCIENCE
+ 7.1. Mount data-cubes using SCIENCE files for each configuration.
+ 7.2. Apply PHASEMAP-CORRECTION using PHASEMAP file (update header).
+ 7.3. Apply WAVELENGTH CALIBRATION using WCAL file.

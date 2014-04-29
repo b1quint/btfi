@@ -304,6 +304,13 @@ class PhaseMap:
 
         return ref_s
 
+    def get_refx_pixel(self):
+        """
+        Return the position of the reference X in pixels.
+        """
+
+        return
+
     def print(self, string):
         """
         Print only in verbose mode.
@@ -535,6 +542,12 @@ class PhaseMap_FP(PhaseMap):
             pyplot.figure()
 
         for i in range(6):
+
+            ref_y = max(ref_y, 0)
+            ref_y = min(ref_y, self.header['NAXIS2'])
+
+            ref_x = max(ref_x, 0)
+            ref_x = min(ref_x, self.header['NAXIS2'])
 
             temp_x = self.data[:fsr, ref_y, x]
             temp_y = self.data[:fsr, y, ref_x]
