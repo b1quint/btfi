@@ -1,4 +1,3 @@
-
 #!/usr/bin/python
 # -*- coding: utf8 -*-
 """
@@ -14,8 +13,10 @@ from __future__ import division, print_function
 
 try:
     import astropy.io.fits as pyfits
-except:
+except ImportError:
+    import pyfits
     from sys import exit
+
     print("\n\tmkcube3 --")
     print("\tAstroPy module was not found in the system.")
     print("\tIt is required to run this program.")
@@ -24,8 +25,29 @@ except:
     print("\n\tLeaving now.\n")
     exit()
 
-class MakeCube(object):
 
+def error(message):
+    """
+    Prints an error message in the terminal and leaves the program.
+    :param message: The message that will be given for the user.
+    :return: None
+    """
+    from sys import exit
+
+    message = '\033[1;38 [!] %s \033[1;m' % message
+    print(message)
+    exit()
+
+
+def warning(message):
+    """
+    Print a colour warning message in the screen.
+    """
+    message = ' \033[1;33m%s\033[1;m' % message
+    print(message)
+
+
+class MakeCube(object):
     def __init__(self):
         """
         Class constructor. It is used to initialize all the variables used in
@@ -39,29 +61,19 @@ class MakeCube(object):
         self.output_file = None
         self.verbose = False
         self.width = None
-
-    def error(self, message):
-        """
-        Prints an error message in the terminal and leaves the program.
-        :param message: The message that will be given for the user.
-        :return: None
-        """
-        from sys import exit
-        message = '\033[1;38 [!] %s \033[1;m' % message
-        exit()
-
+        self.header = None
+        self.cube = None
 
     @property
     def create_input_table(self):
         """
-        :param table_name: name of the input table that will be used
-         as reference to mount the data-cube.
         :return: None
         """
-        from numpy import array, argsort
+        from numpy import array
         from sys import stdout
 
         table = []
+        header_field = None
         if self.verbose:
             print(" Reading files' headers to organize the data.")
         if self.mode.lower() in ['fp', 'fabry-perot']:
@@ -69,14 +81,15 @@ class MakeCube(object):
         elif self.mode.lower() in ['ibtf']:
             header_field = 'IBCURANG'
         else:
-            self.error(" I am sorry but I could not find the BTFI mode" +\
-                       " in the header.")
+            error(" I am sorry but I could not find the BTFI mode" +
+                  " in the header.")
 
-        i, N = 0.0, len(self.input_files)
+        i, number_of_files = 0.0, len(self.input_files)
+        header_value = None
         for input_file in self.input_files:
             if self.verbose:
                 i += 1.0
-                stdout.write("\r  %.2f%%" % (i * 100. / N))
+                stdout.write("\r  %.2f%%" % (i * 100. / number_of_files))
                 stdout.flush()
             try:
                 header_value = pyfits.getheader(input_file)[header_field]
@@ -87,8 +100,8 @@ class MakeCube(object):
 
         print("")
         table = array(table, dtype=str)
-        files = table[:,0]
-        poses = table[:,1].astype(float)
+        files = table[:, 0]
+        poses = array(table[:, 1], dtype=float)
         indexes = poses.argsort()
         files = files[indexes]
         poses = poses[indexes]
@@ -115,12 +128,9 @@ class MakeCube(object):
         """
         :return: Returns data-cube depth.
         """
-        from numpy import abs, float32, unique
-        from scipy.stats import mode
-
-        pos = self.input_table[:,1]
-        pos = unique(pos).astype(float32)
-
+        from numpy import array, float32, unique
+        pos = self.input_table[:, 1]
+        pos = array(unique(pos), dtype=float32)
         return pos.size
 
 
@@ -144,7 +154,7 @@ class MakeCube(object):
         try:
             instrument_mode = pyfits.getheader(filename)['INSTRMOD']
         except KeyError:
-            self.warning("Could not find instrument mode!")
+            warning("Could not find instrument mode!")
             instrument_mode = 'unknown'
         if self.verbose:
             print(" Instrument mode: %s" % instrument_mode)
@@ -155,8 +165,6 @@ class MakeCube(object):
         """
         This is a generic method used to check if a file called 'name' already
         exists. If so, it starts some interaction with the user.
-
-        @param name: the name of the file that will be written in the future.
 
         @keyword overwrite: if False, this method will interact with the user to
         ask if 'name' file shall be overwritten or if a new name will be given. If
@@ -199,7 +207,6 @@ class MakeCube(object):
         return name
 
 
-
     @property
     def get_width(self):
         """
@@ -211,12 +218,13 @@ class MakeCube(object):
 
     @property
     def make_cube(self):
-        from numpy import empty, unique
+        from numpy import array, empty, unique
         from sys import stdout
 
+        cube = None
         table = self.input_table
-        files = table[:,0]
-        poses = table[:,1].astype(float)
+        files = table[:, 0]
+        poses = array(table[:, 1], dtype=float)
         unique_poses = unique(poses)
 
         if self.verbose:
@@ -227,27 +235,27 @@ class MakeCube(object):
         try:
             cube = empty((self.depth, self.height, self.width), dtype=float)
         except MemoryError:
-            self.error(" Ops! The cube was too big for your computer.\n"
-                       " Try making a smaller one.\n"
-                       " Leaving now.")
+            error(" Ops! The cube was too big for your computer.\n"
+                  " Try making a smaller one.\n"
+                  " Leaving now.")
         if self.verbose:
             print(" Ok.")
             print(" Filling data-cube:")
 
-        i, N = 0, unique_poses.size
+        i, number_of_positions = 0, unique_poses.size
         for pos in unique_poses:
             temp_files = files[poses == pos]
-            frame = self.make_frame(pos, temp_files)
+            frame = self.make_frame(temp_files)
             cube[i] = frame
             if self.verbose:
                 i += 1
-                stdout.write("\r  %3.2f%%" % (i * 100 / N))
+                stdout.write("\r  %3.2f%%" % (i * 100 / number_of_positions))
                 stdout.flush()
         print("\n Done.")
         return cube
 
 
-    def make_frame(self, pos, files):
+    def make_frame(self, files):
 
         from numpy import empty
 
@@ -256,13 +264,9 @@ class MakeCube(object):
             try:
                 dummy_cube[i] = pyfits.getdata(files[i])
             except IOError:
-                self.warning(" File %s may be corrupted." % files[i])
+                warning(" File %s may be corrupted." % files[i])
 
-
-        frame = dummy_cube.mean(axis=0)
-
-        # print(pos, files)
-        return frame
+        return dummy_cube.mean(axis=0)
 
 
     @property
@@ -273,18 +277,6 @@ class MakeCube(object):
         """
         header = pyfits.getheader(self.input_files[0])
         header[''] = "--- mkCube3 Calibration ---"
-
-        # header['CRPIX1'] = 1
-        # header['CRVAL1'] = xmin + 1
-        # header['CDELT1'] = bin_step
-        # header['CTYPE1'] = 'LINEAR'
-        # header['CUNIT1'] = 'PIXEL'
-
-        # header['CRPIX2'] = 1
-        # header['CRVAL2'] = ymin + 1
-        # header['CDELT2'] = bin_step
-        # header['CTYPE2'] = 'LINEAR'
-        # header['CUNIT2'] = 'PIXEL'
 
         if self.mode.lower() in ['fp', 'fabry-perot']:
             header['DISPAXIS'] = 3
@@ -305,8 +297,8 @@ class MakeCube(object):
             header['C3_3'] = float(header['TFADELT'])
 
         else:
-            self.warning("Invalid BTFI Instrument Mode.")
-            self.warning("Dummy calibration will be added to the data-cube.")
+            warning("Invalid BTFI Instrument Mode.")
+            warning("Dummy calibration will be added to the data-cube.")
             header['DISPAXIS'] = 3
             header['CRPIX3'] = 1
             header['CRVAL3'] = 1
@@ -330,10 +322,10 @@ class MakeCube(object):
         parser = argparse.ArgumentParser(
             description="Build a data-cube from image files.")
 
-        parser.add_argument('-o','--output', metavar='output', type=str,
+        parser.add_argument('-o', '--output', metavar='output', type=str,
                             default="cube.fits", help="Name of the output cube.")
 
-        parser.add_argument('-q','--quiet', action='store_true',
+        parser.add_argument('-q', '--quiet', action='store_true',
                             help="Run quietly.")
 
         parser.add_argument('files', metavar='files', type=str, nargs='+',
@@ -346,8 +338,6 @@ class MakeCube(object):
             self.input_files = glob.glob(self.input_files[0])
         self.output_file = args.output
         self.verbose = not args.quiet
-
-
 
 
     def print_header(self):
@@ -379,14 +369,6 @@ class MakeCube(object):
             print(" All done!\n")
 
 
-
-    def warning(self, message):
-        """
-        Print a colour warning message in the screen.
-        """
-        message = ' \033[1;33m%s\033[1;m' % message
-        print(message)
-
     def save_datacube(self):
         """
         Just save the data-cube in the disk.
@@ -398,6 +380,7 @@ class MakeCube(object):
             print(" Done!")
         del self.cube
         return
+
 
 if __name__ == '__main__':
     main = MakeCube()
