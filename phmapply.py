@@ -170,7 +170,11 @@ def main():
             print(" Please, enter the free-spectral-range in %s units" % units)
             FSR = input(" > ")
         
+<<<<<<< HEAD
         FSR = round(FSR / sample)  # From BCV to Channels
+=======
+        FSR = round(FSR / sample) # From BCV to Channels
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         if v:
             print(" Free-Spectral-Range is %d channels" % FSR)
         
@@ -413,11 +417,14 @@ class bcolors:
         self.WARNING = ''
         self.FAIL = ''
         self.ENDC = ''
+<<<<<<< HEAD
 
 def round(number):
     mod = number % 1
     number = int(number) if mod < 0.5 else int(number) + 1
     return number
+=======
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
 #===============================================================================
 if __name__ == '__main__':

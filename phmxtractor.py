@@ -14,18 +14,33 @@ import argparse
 import astropy.io.fits as pyfits
 import matplotlib.pyplot as pyplot
 import numpy
+<<<<<<< HEAD
 import numpy.ma as ma
 import time
 import scipy
 import scipy.interpolate as interpolate
+=======
+import time
+import scipy
+import scipy.interpolate as interpolate
+import scipy.ndimage as ndimage
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 import sys
 
 
 def main():
+<<<<<<< HEAD
     # Parse arguments ---------------------------------------------------------
     parser = argparse.ArgumentParser(description="Extracts the phase-map" +
                                                  "from a fits file containing a data" +
                                                  "-cube.")
+=======
+
+    # Parse arguments ---------------------------------------------------------
+    parser = argparse.ArgumentParser(description="Extracts the phase-map" +
+                                     "from a fits file containing a data" +
+                                     "-cube.")
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
     parser.add_argument('-c', '--correlation', action='store_true',
                         help="Use correlation cube? true/[FALSE]")
@@ -38,9 +53,12 @@ def main():
     parser.add_argument('-q', '--quiet', action='store_true',
                         help="Run program quietly. true/[FALSE]")
 
+<<<<<<< HEAD
     parser.add_argument('-r', '--ref', type=int, nargs=2, default=None,
                         help="Reference pixel for the correlation cube.")
 
+=======
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
     parser.add_argument('-s', '--show', action='store_true',
                         help="Show plots used in the process. true/[FALSE]")
 
@@ -49,7 +67,10 @@ def main():
     # Starting program --------------------------------------------------------
     v = not args.quiet
     start = time.time()
+<<<<<<< HEAD
     print(args.ref)
+=======
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
     if v:
         print("")
@@ -68,32 +89,54 @@ def main():
     mode = check_mode(args.filename)
     if mode == 'ibtf':
         PhaseMap_iBTF(args.filename, correlation=args.correlation,
+<<<<<<< HEAD
                       show=args.show, verbose=v, ref=args.ref,
                       output=args.output)
     elif mode == 'fp':
         PhaseMapFP(args.filename, correlation=args.correlation,
                    show=args.show, verbose=v, ref=args.ref,
                    output=args.output)
+=======
+                      show=args.show, verbose=v)
+    elif mode == 'fp':
+        PhaseMap_FP(args.filename, correlation=args.correlation,
+                    show=args.show, verbose=v)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
     # All done! ---------------------------------------------------------------
     end = time.time() - start
     if v:
+<<<<<<< HEAD
         print("\n  Total time elapsed: %02d:%02d:%02d" %
               (end // 3600, end % 3600 // 60, end % 60))
         print("  All done!\n")
 
 
+=======
+        print("\n  Total time ellapsed: %02d:%02d:%02d" %
+              (end // 3600, end % 3600 // 60, end % 60))
+        print("  All done!\n")
+
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 def check_dimensions(filename, dimensions=3, keyword='NAXIS'):
     """
     Method written to check the dimensions of the input fits data.
     """
     header = pyfits.getheader(filename)
 
+<<<<<<< HEAD
     if keyword not in header:
         data = pyfits.getdata(filename)
         ndim = data.ndim
     else:
         ndim = header[keyword]
+=======
+    if not 'NAXIS' in header:
+        data = pyfits.getdata(args.filename)
+        ndim = data.ndim
+    else:
+        ndim = header['NAXIS']
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
     if ndim is not dimensions:
         print(" INVALID DATA: wrong number of dimensions")
@@ -103,7 +146,10 @@ def check_dimensions(filename, dimensions=3, keyword='NAXIS'):
     else:
         return
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 def check_instrument(filename, instrument='btfi', keyword='INSTRUME'):
     """
     Method written to check the instrument.
@@ -111,7 +157,11 @@ def check_instrument(filename, instrument='btfi', keyword='INSTRUME'):
     header = pyfits.getheader(filename)
 
     # First check if the keyword exists
+<<<<<<< HEAD
     if keyword not in header:
+=======
+    if not keyword in header:
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         print("")
         print(" Instrument type not recognized.")
         print(" Do you want to proceed? [Y or n]")
@@ -140,13 +190,19 @@ def check_instrument(filename, instrument='btfi', keyword='INSTRUME'):
 
     return
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 def check_mode(filename, keyword='INSTRMOD'):
     """
     Return if BTFI was obtained with a Fabry-Perot or with the iBTF.
     """
     header = pyfits.getheader(filename)
+<<<<<<< HEAD
     instrument_mode = ''
+=======
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
     if keyword not in header:
         print("\n Instrument mode not found.")
@@ -161,7 +217,10 @@ def check_mode(filename, keyword='INSTRMOD'):
             instrument_mode = 'fp'
 
     return instrument_mode
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
 def safe_save(name, extension=None, overwrite=False, verbose=False):
     """
@@ -190,8 +249,12 @@ def safe_save(name, extension=None, overwrite=False, verbose=False):
         name = name + extension
 
     v = False if (overwrite is True) else True
+<<<<<<< HEAD
     if v:
         print('\n Writing to output file "%s"' % name)
+=======
+    if v: print('\n Writing to output file "%s"' % name)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
     while os.path.exists(name):
 
@@ -211,6 +274,7 @@ def safe_save(name, extension=None, overwrite=False, verbose=False):
             sys.exit()
 
         else:
+<<<<<<< HEAD
             overwrite = raw_input(" '%s' file exist. Overwrite? (y/[n])" % name)
             if v:
                 print(" Writing data-cube to %s" % name)
@@ -226,13 +290,30 @@ def get_refx_pixel():
 
     return
 
+=======
+            overwrite = raw_input(" '%s' file exist. Overwrite? (y/[n])"%name)
+            if v:
+                print(" Writing data-cube to %s" %name)
 
+    return name
+
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
+
+
+#==============================================================================
 class PhaseMap:
+<<<<<<< HEAD
+=======
+
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
     def __init__(self, filename, **config):
 
         # Setting main configuration ------------------------------------------
         self.input_file = filename
+<<<<<<< HEAD
         self.output_file = config['output']
+=======
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         self.config = config
         self.verbose = config['verbose']
 
@@ -241,7 +322,11 @@ class PhaseMap:
         else:
             self.show = False
 
+<<<<<<< HEAD
         self.loading = [' ', '-', '\\', '|', '/']
+=======
+        self.loading = [' ','-','\\','|','/']
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         # Reading raw data ----------------------------------------------------
         self.print("  Loading data.")
@@ -274,22 +359,30 @@ class PhaseMap:
         Extract the phase-map.
         """
         from astropy.io.fits import getdata
+<<<<<<< HEAD
         from numpy import argmax
+=======
+        from numpy import argmax, inf, where
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         self.print("\n  Starting phase-map extraction.")
         self.print("  Reading data from %s file" % self.extract_from)
         data = getdata(self.extract_from)
+<<<<<<< HEAD
         data = data.astype(float)
 
         phase_map = argmax(data, axis=0)
         phase_map = phase_map - phase_map[self.ref_y, self.ref_x]
         phase_map = phase_map * self.sample
+=======
+        #data = where(data > data.mean() + data.std(), data, -inf)
+
+        phase_map = argmax(data, axis=0) * self.sample
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         return phase_map
 
     def find_reference_pixel(self):
-        """
-        Read the reference pixel from header or find it.
-        """
+        """Read the reference pixel from header or find it."""
         if ('PHMREFX' in self.header) and ('PHMREFY' in self.header):
             self.print(" \n  Found reference pixel in header.")
             ref_x = self.header['PHMREFX']
@@ -340,24 +433,38 @@ class PhaseMap:
         from scipy.optimize import leastsq
         from scipy.stats import mode
 
+<<<<<<< HEAD
         try:
             fsr = self.free_spectral_range / self.header['CDELT3']
         except KeyError:
             print(" WARNING: Z-Calibration not found!")
             fsr = self.free_spectral_range
+=======
+        fsr = self.free_spectral_range / self.header['C3_3']
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         z = self.z[:fsr]
         s = self.ref_s[:fsr]
         s = s - mode(s)[0]
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         zz = numpy.linspace(z[0], z[-1], 1000)
         ss = interpolate.interp1d(z, s, kind='cubic')
         sss = ss(zz) - ss(zz).max() / 2
 
         fit_func = lambda p, x: p[0] * numpy.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
         err_func = lambda p, x, y: y - fit_func(p, x)
+<<<<<<< HEAD
         pars = [sss.max(), zz[sss.argmax()], 10]
         pars, _ = leastsq(err_func, pars, args=(zz, ss(zz)))
         fwhm_gauss = 2.35482 * pars[2]
+=======
+        p = [sss.max(), zz[sss.argmax()], 10]
+        p, _ = leastsq(err_func, p, args=(zz, sss))
+        fwhm_gauss = 2.35482 * p[2]
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         zzz = zz[sss > 0]
         fwhm_measured = zzz.ptp()
@@ -368,6 +475,7 @@ class PhaseMap:
             pyplot.plot(z, s, 'bo')
             pyplot.plot(zz, ss(zz), 'b-', lw=2)
             pyplot.plot(zz, sss, 'r-', lw=2, alpha=0.3)
+<<<<<<< HEAD
             pyplot.plot(zz, fit_func(pars, zz), 'g-', lw=2, alpha=0.3)
             pyplot.axvline(pars[1] - fwhm_gauss / 2, ls='--', c='green', lw=2)
             pyplot.axvline(pars[1] + fwhm_gauss / 2, ls='--', c='green', lw=2,
@@ -375,6 +483,15 @@ class PhaseMap:
             pyplot.axvline(zz[numpy.argmax(ss(zz))] + fwhm_measured / 2, ls='--', c='red', lw=2)
             pyplot.axvline(zz[numpy.argmax(ss(zz))] - fwhm_measured / 2, ls='--', c='red', lw=2,
                            label='Definition = %.1f %s' % (fwhm_measured, self.units))
+=======
+            pyplot.plot(zz, fit_func(p, zz), 'g-', lw=2, alpha=0.3)
+            pyplot.axvline(p[1] - fwhm_gauss / 2, ls='--', c='green', lw=2)
+            pyplot.axvline(p[1] + fwhm_gauss/ 2, ls='--', c='green', lw=2,
+                label='Gauss Fit = %.1f %s' % (fwhm_gauss, self.units))
+            pyplot.axvline(p[1] + fwhm_measured/ 2, ls='--', c='red', lw=2)
+            pyplot.axvline(p[1] - fwhm_measured/ 2, ls='--', c='red', lw=2,
+                label='Definition = %.1f %s' % (fwhm_measured, self.units))
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
             pyplot.legend(loc='best')
             pyplot.grid()
             pyplot.tight_layout()
@@ -394,10 +511,17 @@ class PhaseMap:
         """
         from scipy.stats import mode
 
+<<<<<<< HEAD
         ref_s = pyfits.getdata(self.input_file)[:, self.ref_y, self.ref_x]
         ref_s = ref_s / ref_s.max()  # Normalize
         ref_s = ref_s - ref_s.mean()  # Remove mean to avoid triangular shape
         ref_s = ref_s - mode(ref_s)[0]  # Try to put zero on zero
+=======
+        ref_s = pyfits.getdata(self.input_file)[:,self.ref_y, self.ref_x]
+        ref_s = ref_s / ref_s.max()  # Normalize
+        ref_s = ref_s - ref_s.mean() # Remove mean to avoid triangular shape
+        ref_s = ref_s - mode(ref_s)[0] # Try to put zero on zero
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         if self.show:
             pyplot.figure()
@@ -410,12 +534,26 @@ class PhaseMap:
 
         return ref_s
 
+<<<<<<< HEAD
+=======
+    def get_refx_pixel(self):
+        """
+        Return the position of the reference X in pixels.
+        """
+
+        return
+
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
     def print(self, string):
         """
         Print only in verbose mode.
         """
+<<<<<<< HEAD
         if self.verbose:
             print(string)
+=======
+        if self.verbose: print(string)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         return
 
     def use_correlation(self):
@@ -440,24 +578,39 @@ class PhaseMap:
                     self.print(" Correlation cube to be used: %s" % candidate)
                     return candidate
 
+<<<<<<< HEAD
         if corr_cube is None:
+=======
+        if corr_cube == None:
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
             self.print(" Correlation cube not found. Creating a new one.")
             data = getdata(self.input_file)
             corr_cube = numpy.empty_like(data)
 
             x = numpy.arange(self.width)
             y = numpy.arange(self.height)
+<<<<<<< HEAD
             x, y = numpy.meshgrid(x, y)
             x, y = numpy.ravel(x), numpy.ravel(y)
+=======
+            X, Y = numpy.meshgrid(x, y)
+            x, y = numpy.ravel(X), numpy.ravel(Y)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
             for i in range(x.size):
                 s = data[:, y[i], x[i]]
                 s = s / s.max()  # Normalize
                 s = s - s.mean()  # Remove mean to avoid triangular shape
                 s = numpy.correlate(s, self.ref_s, mode='same')
+<<<<<<< HEAD
                 corr_cube[:, y[i], x[i]] = s
 
                 temp = ((i + 1) * 100.00 / x.size)
+=======
+                corr_cube[:,y[i],x[i]] = s
+
+                temp = (((i + 1) * 100.00 / X.size))
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
                 stdout.write('\r %2d%% ' % temp)
                 stdout.write(self.loading[int(temp * 10 % 5)])
                 stdout.flush()
@@ -497,6 +650,7 @@ class PhaseMap:
         h.set('PHMUNIT', self.units)
         h.set('PHMSAMP', self.sample)
 
+<<<<<<< HEAD
         if self.output_file is None:
             filename = safe_save(f + "--obs_phmap.fits", overwrite=True, verbose=v)
             self.print(" Saving observed phase-map to file: %s" % filename)
@@ -527,6 +681,26 @@ class PhaseMapFP(PhaseMap):
 
         PhaseMap.__init__(self, filename, correlation=correlation,
                           show=show, verbose=verbose, output=output)
+=======
+        filename = safe_save(f + "--obs_phmap.fits", overwrite=True, verbose=v)
+        self.print(" Saving observed phase-map to file: %s" % filename)
+        writeto(filename, self.phase_map, h, clobber=True)
+
+        ## TODO Fix refspec file's header to keep calibration
+        filename = safe_save(f + "--ref_spec.fits", overwrite=True, verbose=v)
+        self.print(" Saving reference spectrum to file: %s" % filename)
+        writeto(filename, self.ref_s, h, clobber=True)
+
+        return
+
+#==============================================================================
+class PhaseMap_FP(PhaseMap):
+
+    def __init__(self, filename, correlation=False, show=False, verbose=False):
+
+        PhaseMap.__init__(self, filename, correlation=correlation,
+                          show=show, verbose=verbose)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         # This is a Fabry-Perot data-cube. Let's make that clear to the user
         if self.verbose:
@@ -536,10 +710,14 @@ class PhaseMapFP(PhaseMap):
         self.free_spectral_range = self.get_free_spectral_range()
 
         # Getting reference spectrum
+<<<<<<< HEAD
         if ref is None:
             self.ref_x, self.ref_y = self.find_reference_pixel()
         else:
             self.ref_x, self.ref_y = ref[:]
+=======
+        self.ref_x, self.ref_y = self.find_reference_pixel()
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         self.ref_s = self.get_reference_spectrum()
 
         # Calculate the FWHM
@@ -577,15 +755,25 @@ class PhaseMapFP(PhaseMap):
         except KeyError:
             sampling = 1
 
+<<<<<<< HEAD
+=======
+        fsr = round(self.free_spectral_range / sampling)
+
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         # Reading data
         if self.verbose:
             print("\n Starting phase-map extraction.")
             print(" Reading data from %s file" % self.extract_from)
         data = pyfits.getdata(self.extract_from)
+<<<<<<< HEAD
+=======
+        # data = data[0:fsr]
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         # Extracting phase-map
         if self.verbose:
             print(" Extracting phase-map...")
+<<<<<<< HEAD
 
         dmask = ma.masked_less(data, data.mean() + data.std())
         # data = numpy.where(data > data.mean() + data.std(), data, -numpy.inf)
@@ -595,6 +783,13 @@ class PhaseMapFP(PhaseMap):
         if self.verbose:
             print(" Done in %.2f seconds" % (time.time() - now))
 
+=======
+        data = numpy.where(data > data.mean() + data.std(), data, -numpy.inf)
+        phase_map = numpy.argmax(data, axis=0) * sampling
+
+        if self.verbose:
+            print(" Done in %.2f seconds" % (time.time() - now))
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         return phase_map
 
     def find_reference_pixel(self):
@@ -627,11 +822,16 @@ class PhaseMapFP(PhaseMap):
         """
         Method used to find the center of the rings inside a FP data-cube.
         """
+<<<<<<< HEAD
+=======
+
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         now = time.time()
 
         # Renaming some variables
         width = self.width
         height = self.height
+<<<<<<< HEAD
         try:
             fsr = round(self.free_spectral_range / self.header['C3_3'])
         except KeyError:
@@ -641,6 +841,13 @@ class PhaseMapFP(PhaseMap):
         # Choosing the points
         x = (numpy.linspace(0.05, 0.95, 500) * width).astype(int)
         y = (numpy.linspace(0.05, 0.95, 500) * height).astype(int)
+=======
+        fsr = round(self.free_spectral_range / self.header['C3_3'])
+
+        # Choosing the points
+        x = (numpy.linspace(0.2, 0.8, 500) * width).astype(int)
+        y = (numpy.linspace(0.2, 0.8, 500) * height).astype(int)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         ref_x = self.header['NAXIS1'] // 2
         ref_y = self.header['NAXIS2'] // 2
@@ -652,12 +859,17 @@ class PhaseMapFP(PhaseMap):
         if self.show:
             pyplot.figure()
 
+<<<<<<< HEAD
         for i in range(5):
+=======
+        for i in range(6):
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
             ref_y = max(ref_y, 0)
             ref_y = min(ref_y, self.header['NAXIS2'])
 
             ref_x = max(ref_x, 0)
+<<<<<<< HEAD
             ref_x = min(ref_x, self.header['NAXIS1'])
 
             ## First Version -- Get a slice from cube
@@ -682,6 +894,18 @@ class PhaseMapFP(PhaseMap):
 
             px = scipy.polyfit(x[:-1], temp_x[0] + numpy.cumsum(xl), 2)
             py = scipy.polyfit(y[:-1], temp_y[0] + numpy.cumsum(yl), 2)
+=======
+            ref_x = min(ref_x, self.header['NAXIS2'])
+
+            temp_x = self.data[:fsr, ref_y, x]
+            temp_y = self.data[:fsr, y, ref_x]
+
+            temp_x = numpy.argmax(temp_x, axis=0)
+            temp_y = numpy.argmax(temp_y, axis=0)
+
+            px = scipy.polyfit(x, temp_x, 2)
+            py = scipy.polyfit(y, temp_y, 2)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
             ref_x = round(- px[1] / (2.0 * px[0]))
             ref_y = round(- py[1] / (2.0 * py[0]))
@@ -698,17 +922,29 @@ class PhaseMapFP(PhaseMap):
                 pyplot.axvline(ref_y, ls='--', c='red', label='y')
                 pyplot.legend(loc='best')
                 pyplot.grid()
+<<<<<<< HEAD
                 pyplot.ylabel("Iteration number %d" % (i + 1))
+=======
+                pyplot.ylabel("Iteration number %d" %(i+1))
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
             # Selecting valid data
             error_x = numpy.abs(temp_x - scipy.polyval(px, x))
             error_y = numpy.abs(temp_y - scipy.polyval(py, y))
 
+<<<<<<< HEAD
             cond_x = numpy.where(error_x <= 3 * numpy.abs(numpy.median(xl[xl!=0])), True, False)
             cond_y = numpy.where(error_y <= 3 * numpy.abs(numpy.median(yl[yl!=0])), True, False)
 
             # x = x[cond_x]
             # y = y[cond_y]
+=======
+            cond_x = numpy.where(error_x <= 3 * error_x.std(), True, False)
+            cond_y = numpy.where(error_y <= 3 * error_y.std(), True, False)
+
+            x = x[cond_x]
+            y = y[cond_y]
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
             # Choosing when to stop
             if (abs(old_ref_x - ref_x) <= 2) and (abs(old_ref_y - ref_y) <= 2):
@@ -742,6 +978,7 @@ class PhaseMapFP(PhaseMap):
             pyplot.tight_layout()
             pyplot.show()
 
+<<<<<<< HEAD
         # If my program gets here, it could not find the center.
         # So what?
         print("[!] Rings center NOT found.")
@@ -772,6 +1009,13 @@ class PhaseMapFP(PhaseMap):
                 reply = self.header['NAXIS2'] // 2
                 break
         ref_y = int(reply)
+=======
+        if self.verbose:
+            print(" Rings center NOT found.")
+
+        ref_x = self.header['NAXIS1'] // 2
+        ref_y = self.header['NAXIS2'] // 2
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         # If the cube was binned this will be useful
         try:
@@ -779,7 +1023,11 @@ class PhaseMapFP(PhaseMap):
                     * self.header['CDELT1'] + self.header['CRVAL1']
             ref_y = (ref_y - self.header['CRPIX2']) \
                     * self.header['CDELT2'] + self.header['CRVAL2']
+<<<<<<< HEAD
         except KeyError:
+=======
+        except:
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
             pass
 
         if self.verbose:
@@ -816,7 +1064,11 @@ class PhaseMapFP(PhaseMap):
         now = time.time()
 
         # First frame is the reference frame
+<<<<<<< HEAD
         ref_frame = self.data[0, :, :]
+=======
+        ref_frame = self.data[0,:,:]
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         # Subtract all frames from the first frame
         data = self.data - ref_frame
@@ -830,7 +1082,11 @@ class PhaseMapFP(PhaseMap):
 
         # Interpolate data
         s = interpolate.UnivariateSpline(self.z, data, k=3)
+<<<<<<< HEAD
         z = numpy.linspace(self.z[4:].min(), self.z.max(), 1000) + 1
+=======
+        z = numpy.linspace(self.z[5:].min(), self.z.max(), 1000)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         # Find the free-spectral-range in z units
         fsr = z[numpy.argmin(s(z))] - self.z[0]
@@ -838,6 +1094,7 @@ class PhaseMapFP(PhaseMap):
         # Find the free-spectral-range in number of channels
         fsr_channel = numpy.argmin(numpy.abs(self.z - z[numpy.argmin(s(z))]))
 
+<<<<<<< HEAD
         # Fix for Python index style
         fsr_channel = fsr_channel + 1
 
@@ -865,6 +1122,8 @@ class PhaseMapFP(PhaseMap):
                 reply = raw_input('? ')
             fsr_channel = int(reply)
 
+=======
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         # Calculate the sampling
         sampling = fsr / fsr_channel
 
@@ -877,10 +1136,17 @@ class PhaseMapFP(PhaseMap):
         # Plot to see how it goes
         if self.show:
             pyplot.title("Finding the Free-Spectral-Range")
+<<<<<<< HEAD
             pyplot.plot(self.z, data, 'ko', label='Measured data')
             pyplot.plot(z, s(z), 'k-', lw=2, label='3rd deg spline fitting')
             pyplot.xlabel("z [%s]" % self.units)
             pyplot.axvline(x=(fsr + self.z.min()), ls='--', c='gray',
+=======
+            pyplot.plot(self.z, data, 'bo', label='Measured data')
+            pyplot.plot(z, s(z), 'r-', lw=2, label='3rd deg spline fitting')
+            pyplot.xlabel("z [%s]" % self.units)
+            pyplot.axvline(x=(fsr + self.z.min()), ls='--', c='red',
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
                            label='Free-Spectral-Range \nat z = %.1f' % fsr)
             pyplot.legend(loc='best')
             pyplot.gca().yaxis.set_ticklabels([])
@@ -905,6 +1171,7 @@ class PhaseMapFP(PhaseMap):
         h.set('', '--- PHM Xtractor ---', before='PHMREFX')
 
         # if 'PHMREFX' not in self.header:
+<<<<<<< HEAD
         # update = '.'
         # while update.upper() not in 'YESNO':
         # update = raw_input(" Update input file? [Y]/n \n ")
@@ -912,11 +1179,21 @@ class PhaseMapFP(PhaseMap):
         # self.print(" Updating input file %s" % self.input_file)
         # data = getdata(self.input_file)
         # writeto(self.input_file, data, h, clobber=\usemintedstyle{bw}True)
+=======
+        #     update = '.'
+        #     while update.upper() not in 'YESNO':
+        #         update = raw_input(" Update input file? [Y]/n \n ")
+        #         if update.upper() in 'YES':
+        #             self.print(" Updating input file %s" % self.input_file)
+        #             data = getdata(self.input_file)
+        #             writeto(self.input_file, data, h, clobber=True)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         fsr = self.free_spectral_range
 
         h['PHMREFF'] = (self.input_file, 'Original file')
         h['PHMTYPE'] = 'observed'
+<<<<<<< HEAD
         h['PHMUNIT'] = self.units
         h['PHMFSR'] = (round(fsr, 2),
                        'Free-spectral-range in %s units' % self.units)
@@ -928,6 +1205,13 @@ class PhaseMapFP(PhaseMap):
 
 
         self.phase_map = self.phase_map - self.phase_map[self.ref_y, self.ref_x]
+=======
+        h['PHMUNIT'] = self.header['CUNIT3']
+        h['PHMFSR'] = (round(fsr, 2),
+                       'Free-spectral-range in %s units' % self.units)
+        h['PHMSAMP'] = (self.header['C3_3'], 'Used sample [%s / channel].'
+                                             % self.units)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         # TODO Remove 3rd axis calibration residuals
         filename = safe_save(f + "--obs_phmap.fits", overwrite=True, verbose=v)
@@ -940,6 +1224,7 @@ class PhaseMapFP(PhaseMap):
 
         return
 
+<<<<<<< HEAD
 
 class PhaseMap_iBTF(PhaseMap):
     def __init__(self, filename, correlation=False, show=False,
@@ -947,16 +1232,29 @@ class PhaseMap_iBTF(PhaseMap):
 
         PhaseMap.__init__(self, filename, correlation=correlation,
                           show=show, verbose=verbose, output=output)
+=======
+#==============================================================================
+class PhaseMap_iBTF(PhaseMap):
+
+    def __init__(self, filename, correlation=False, show=False, verbose=False):
+
+        PhaseMap.__init__(self, filename, correlation=correlation,
+                          show=show, verbose=verbose)
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 
         # This is an iBTF data-cube. Let's make that clear to the user
         if self.verbose:
             print("\n  Extracting phase-map from a iBTF data-cube.")
 
         # Getting reference spectrum
+<<<<<<< HEAD
         if ref is None:
             self.ref_x, self.ref_y = self.find_reference_pixel()
         else:
             self.ref_x, self.ref_y = ref[:]
+=======
+        self.ref_x, self.ref_y = self.find_reference_pixel()
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
         self.ref_s = self.get_reference_spectrum()
 
         # Use correlation?
@@ -969,6 +1267,10 @@ class PhaseMap_iBTF(PhaseMap):
         self.phase_map = self.extract_phase_map()
         self.save()
 
+<<<<<<< HEAD
 # ==============================================================================
+=======
+#==============================================================================
+>>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
 if __name__ == '__main__':
     main()
