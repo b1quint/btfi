@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """
-    Phase-Map Apply - A script to apply a phase-map on a data-cube.
+     Phase-Map Apply - A script to apply a phase-map on a data-cube.
      by Bruno Quint (bquint@astro.iag.usp.br) 
      and Fabricio Ferrari (fabricio@ferrari.pro.br)
      version 0.0 - Feb 2014
@@ -16,7 +16,8 @@ import os
 import sys
 import time
 
-from scipy.interpolate import UnivariateSpline 
+from scipy.interpolate import UnivariateSpline
+
 
 def main():
     
@@ -95,28 +96,12 @@ def main():
         print("[!] Map file is not really an image.")
         print("[!] Leaving now.\n")
         sys.exit()
-    
-    if data_cube.header['INSTRUME'].upper() != 'BTFI':
-        print("[!] The data-cube was not obtained with BTFI instrument.")
-        print("[!] Leaving now.\n")
-        sys.exit()    
-    
-    if data_cube.header['INSTRMOD'].upper() in ['IBTF'] and v:
-        print("\n File obtained through an iBTF scan.")
-        mode = 'ibtf'
 
-    elif data_cube.header['INSTRMOD'].upper() in ['FP', 'FABRY-PEROT'] and v:
-        print("\n File obtained through a FP scan.")
-        mode = 'fabry-perot'
-    
-    else:
-        if v: 
-            print("[!] File was not obtained from FP or iBTF.")
-            print("[!] Leaving now.\n")
-            sys.exit()
-    
+    check_instrument(cube_file)
+    mode = check_mode(cube_file)
+
     ## Phase-Correction for iBTF data-cube ------------------------------------
-    if mode == 'ibtf':
+    if mode.lower() in ['ibtf']:
         
         # Padding data-cube with zeros ----------------------------------------
         if v: 
@@ -132,8 +117,12 @@ def main():
         
         data_cube.data = numpy.vstack((pad, data_cube.data))
         data_cube.data = numpy.vstack((data_cube.data, pad))
-        data_cube.header['CRPIX3'] = data_cube.header['CRPIX3'] + phm_max
         L, M, N = data_cube.data.shape
+
+        try:
+            data_cube.header['CRPIX3'] = data_cube.header['CRPIX3'] + phm_max
+        except KeyError:
+            data_cube.header['CRPIX3'] = L
         
         if v:
             print(" Cube shape after padding: %d x %d x %d" % (N, M, L));
@@ -153,9 +142,9 @@ def main():
                 shift = phase_map.data[i,j]
                 data_cube.data[:,i,j] = shiftSpectrum(spec, shift, args.npoints)
         if v: print(" Done.")
-    
+
     ## Phase-Correction for Fabry-Perot data-cube ------------------------------
-    elif mode == 'fabry-perot':
+    elif mode.lower() in ['fabry-perot', 'fp']:
     
         M = data_cube.header['NAXIS1']
         N = data_cube.header['NAXIS2']
@@ -163,30 +152,38 @@ def main():
         ref_x = phase_map.header['PHMREFX']
         ref_y = phase_map.header['PHMREFY']
         units = phase_map.header['PHMUNIT']
-        sample = float(data_cube.header['FPZDELT'])
+        sample = float(phase_map.header['PHMSAMP'])
         
         # Reading the Free-Spectral-Range --------------------------------------
         try:
             if v: 
                 print(" Reading free-spectral-range from cube header.")
-            FSR = phase_map.header['PHMFITSR']
+            # TODO add an option to use the FSR found while extracting
+            # TODO the phase-map or while fitting it.
+            # TODO or even to give the option for the user to enter it.
+            # FSR = phase_map.header['PHMFITSR']
+            FSR = phase_map.header['PHMFSR']
             if v:
                 print(" Free Spectral Range = %.2f %s" % (FSR, units))
+
         except (KeyError):
             print(" Please, enter the free-spectral-range in %s units" % units)
             FSR = input(" > ")
         
-        FSR = FSR / sample # From BCV to Channels
+        FSR = round(FSR / sample)  # From BCV to Channels
         if v:
-            print(" Free-Spectral-Range is %.3f channels" % FSR)
+            print(" Free-Spectral-Range is %d channels" % FSR)
         
-        fsr = FSR * args.npoints # From Channels to nPoints
-        fsr = int(round(fsr))
         if v:
-            print(" Free-Spectral-Range is %d points" % fsr)
+            print(" Free-Spectral-Range is %d points" % (FSR * args.npoints))
         
-        # Assure that the reference spectrum will not be moved -----------------
-        phase_map.data = phase_map.data - phase_map.data[ref_y, ref_x]
+        # Assure that the reference spectrum will not be moved ----------------
+        try:
+            phase_map.data = phase_map.data - phase_map.data[ref_y, ref_x]
+        except IndexError:
+            print("[!] Reference pixel out of field.")
+            print("[!] Skipping reference pixel map subtraction.")
+            pass
         phase_map.data = -1 * phase_map.data
         
         # Converting phase-map values to channels ------------------------------
@@ -194,47 +191,68 @@ def main():
         
         # Converting phase-map from channels to number of points --------------
         phase_map.data = phase_map.data * args.npoints
+        phase_map.data = numpy.round(phase_map.data, 0)
+        phase_map.data = phase_map.data.astype(int)
         
         # Applying phase-map --------------------------------------------------
         if v: 
             print("\n Applying phase-map:")
         
-        z = numpy.arange(data_cube.header['NAXIS3'])
-        new_z = numpy.arange(0, z.size, 1.0 / args.npoints)
-    
+        ## Cut the data-cube in a single FSR
+        end_of_cube = min(int(round(FSR)), data_cube.data.shape[0])
+        data_cube.data = data_cube.data[0:end_of_cube,:, :]
+
+        ## Create a dummy Z
+        z = numpy.arange(data_cube.data.shape[0] * 2)
+        z = z - z.size // 4
+
+        # new_z = numpy.arange(z.min(), z.max(), 1.0 / args.npoints)
+        new_z = numpy.linspace(z.min(), z.max(), z.size * args.npoints)
+
+        fsr = int(round(FSR * args.npoints))
+        print(z.min(), z.max())
+        print(new_z.min(), new_z.max())
+
         for i in range(M):
             for j in range(N):
                 
                 # Extracting a spectrum 
                 spec = data_cube.data[:,j,i]
+                head = spec[:FSR//2]
+                tail = spec[FSR//2:]
+                spec = numpy.append(tail, spec)  ## Tail at the beggining
+                spec = numpy.append(spec, head)  ## Head at end
                 dz = phase_map.data[j,i]
                 
                 # Re-sample spectrum
                 spline = UnivariateSpline(z, spec, s=0.0)
                 new_spec = spline(new_z)
-                
+
                 # Cutting spectrum
-                new_z = new_z[0:fsr+1]
-                new_spec = new_spec[0:fsr+1]
-                
+                new_spec = new_spec[fsr:2*fsr]
+
                 # Shifting spectrum
-                new_spec = numpy.roll(new_spec, int(dz))
-                
+                new_spec = numpy.roll(new_spec, dz)
+                head = new_spec[:fsr//2]
+                tail = new_spec[fsr//2:]
+                new_spec = numpy.append(tail, new_spec)
+                new_spec = numpy.append(new_spec, head)
+
                 # Under-sampling spectrum
                 spline = UnivariateSpline(new_z, new_spec, s=0.0)
                 spec = spline(z)
-                
+
                 # Storing new spectrum
-                data_cube.data[:,j,i] = spec
-                
+                # data_cube.data[:,j,i] = spec
+                data_cube.data[:FSR,j,i] = new_spec[fsr:2*fsr:args.npoints]
+
                 # Giving a feedback to the user
                 if v: 
                     temp = (((i + 1) * 100.00 / M))
                     sys.stdout.write('\r  %2.2f%% ' % temp)
                     sys.stdout.flush()
-                     
-        end_of_cube = min(int(round(FSR)), data_cube.data.shape[0])
-        data_cube.data = data_cube.data[0:end_of_cube, :, :]
+            # plt.show()
+
         if v: print(" Done.")
         
     else:
@@ -250,6 +268,50 @@ def main():
         print("\n Total time ellapsed: %02d:%02d:%02d" % \
               (end // 3600, end % 3600 // 60, end % 60));     
         print(" All done!\n");
+
+def check_instrument(filename, instrument='btfi', keyword='INSTRUME'):
+    """
+    Method written to check the instrument.
+    """
+    header = pyfits.getheader(filename)
+
+    # First check if the keyword exists
+    if not keyword in header:
+        print("")
+        print(" Instrument type not recognized.")
+        print(" Do you want to proceed? [Y or n]")
+
+        answer = '.'
+        while answer.lower() not in ' yn':
+            answer = raw_input('? ')
+
+        if answer.lower() == 'n':
+            print(" Leaving now.\n")
+            sys.exit()
+        else:
+            return
+
+def check_mode(filename, keyword='INSTRMOD'):
+    """
+    Return if BTFI was obtained with a Fabry-Perot or with the iBTF.
+    """
+    from astropy.io import fits as pyfits
+
+    header = pyfits.getheader(filename)
+
+    if keyword not in header:
+        warning("Instrument mode not found.")
+        instrument_mode = ''
+        while instrument_mode.lower() not in ['ibtf', 'fp']:
+            instrument_mode = raw_input(" Enter 'ibtf' or 'fp': ")
+    else:
+        if header[keyword].upper() in ['IBTF']:
+            instrument_mode = 'ibtf'
+
+        if header[keyword].upper() in ['FP', 'FABRY-PEROT']:
+            instrument_mode = 'fp'
+
+    return instrument_mode
 
 ## Method shiftSpectrum ========================================================
 def shiftSpectrum(spec, dz, nPoints=100):
@@ -323,6 +385,39 @@ def shift_spectrum(spec, dz, fsr=-1, sample=1.0, n_points=100):
 
     return spec
 
+def error(my_string):
+    s = bcolors.FAIL + '[ERROR] ' + bcolors.ENDC
+    s = s + my_string
+    print(s)
+    return
+
+def warning(my_string):
+    s = bcolors.WARNING + '[WARNING] ' + bcolors.ENDC
+    s = s + my_string
+    print(s)
+    return
+
+class bcolors:
+
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+    def disable(self):
+        self.HEADER = ''
+        self.OKBLUE = ''
+        self.OKGREEN = ''
+        self.WARNING = ''
+        self.FAIL = ''
+        self.ENDC = ''
+
+def round(number):
+    mod = number % 1
+    number = int(number) if mod < 0.5 else int(number) + 1
+    return number
 
 #===============================================================================
 if __name__ == '__main__':

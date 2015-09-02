@@ -14,6 +14,7 @@ import argparse
 import astropy.io.fits as pyfits
 import matplotlib.pyplot as pyplot
 import numpy
+import numpy.ma as ma
 import time
 import scipy
 import scipy.interpolate as interpolate
@@ -278,6 +279,7 @@ class PhaseMap:
         self.print("\n  Starting phase-map extraction.")
         self.print("  Reading data from %s file" % self.extract_from)
         data = getdata(self.extract_from)
+        data = data.astype(float)
 
         phase_map = argmax(data, axis=0)
         phase_map = phase_map - phase_map[self.ref_y, self.ref_x]
@@ -356,7 +358,6 @@ class PhaseMap:
         pars = [sss.max(), zz[sss.argmax()], 10]
         pars, _ = leastsq(err_func, pars, args=(zz, ss(zz)))
         fwhm_gauss = 2.35482 * pars[2]
-        print(pars[1])
 
         zzz = zz[sss > 0]
         fwhm_measured = zzz.ptp()
@@ -585,11 +586,15 @@ class PhaseMapFP(PhaseMap):
         # Extracting phase-map
         if self.verbose:
             print(" Extracting phase-map...")
-        data = numpy.where(data > data.mean() + data.std(), data, -numpy.inf)
-        phase_map = numpy.argmax(data, axis=0) * sampling
+
+        dmask = ma.masked_less(data, data.mean() + data.std())
+        # data = numpy.where(data > data.mean() + data.std(), data, -numpy.inf)
+        phase_map = ma.argmax(dmask, axis=0) * sampling
+        phase_map = phase_map.astype(float)
 
         if self.verbose:
             print(" Done in %.2f seconds" % (time.time() - now))
+
         return phase_map
 
     def find_reference_pixel(self):
@@ -632,7 +637,6 @@ class PhaseMapFP(PhaseMap):
         except KeyError:
             print(" WARNING: Z-Calibration not found!")
             fsr = round(self.free_spectral_range)
-        print(fsr)
 
         # Choosing the points
         x = (numpy.linspace(0.05, 0.95, 500) * width).astype(int)
@@ -826,7 +830,7 @@ class PhaseMapFP(PhaseMap):
 
         # Interpolate data
         s = interpolate.UnivariateSpline(self.z, data, k=3)
-        z = numpy.linspace(self.z[4:].min(), self.z.max(), 1000)
+        z = numpy.linspace(self.z[4:].min(), self.z.max(), 1000) + 1
 
         # Find the free-spectral-range in z units
         fsr = z[numpy.argmin(s(z))] - self.z[0]
@@ -835,7 +839,7 @@ class PhaseMapFP(PhaseMap):
         fsr_channel = numpy.argmin(numpy.abs(self.z - z[numpy.argmin(s(z))]))
 
         # Fix for Python index style
-        fsr = fsr + 1
+        fsr_channel = fsr_channel + 1
 
         # What if my cube has less than a FSR or could not find it?
         if fsr_channel == 4:
