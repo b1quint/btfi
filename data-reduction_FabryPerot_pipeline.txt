@@ -1,0 +1,66 @@
+1) Mounting Cubes -----------------------------------------------------------------------------------------------------
+
+         -> Subtract Bias -> Subtract Dark -> Divide Flat -> Mount Data-cube     -> 
+Raw Data -> Mount Data-cube -> Subtract Bias -> Subtract Dark -> Divide Flat     -> Data-Cube
+         -> Mount Data-Cube subtracting Bias, Dark and dividing Flat with mkcube -> 
+
+* The order does not matter in this process, just dark and bias subtraction should come before flat division.
+
+TO DO: Create a script that mounts data-cubes regardless raw data file names (mkcube3).
+
+Syntax:
+	mkcube2x [-h] [-a algorithm] [-b bin] [-B BIAS] [-d DARK] [-f FLAT]
+        	      [-i ipc] [-m] [-o output] [-q] [-s skip] [-x xlim xlim]
+        	      [-y ylim ylim] [-z zlim zlim]
+        	      files [files ...]
+
+OBS: mkcube2x is the version of mkcube that you are using. 
+
+2) Extracting Phase-Map -----------------------------------------------------------------------------------------------
+
+Calibration Data-Cube 
+ -> Find rings center (slicing parabolic surface in X and Y - some interactions - fast but not tested enought)
+  -> Extract reference spectrum from rings center (FP)
+   -> (Optional) Get a correlation cube by correlating all the cube's spectra with the reference spectrum. 
+    -> Use argmax to get the peaks position
+     -> Observed Phase-Map
+
+Syntax:
+	phmxtractor [-h] [-c] [-o OUTPUT] [-q] filename
+
+3) Fit Phase-Map ------------------------------------------------------------------------------------------------------
+
+Observed Phase-Map 
+ -> Radial Plot from center using some points (all points make it slow)
+  -> Subtract FSR from pixels with phase-peak position greater than the center (check this criterium / FSR not precise)
+   -> Fitting 2nd poly 
+    -> Fitted Phase-Map
+
+Syntax: 
+	phmfit [-h] [-i INTERACTIONS] [-n NPOINTS] [-o OUTPUT] [-q] filename
+
+4) Free-Spectral-Range ------------------------------------------------------------------------------------------------
+ -> Measure it in the phase extraction or in the phase fitting?
+ -> Best way to measure?
+ -> Now it is being measured during the 'fit' process
+
+5) Apply Phase-Map ----------------------------------------------------------------------------------------------------
+
+Data-Cube + Phase-Map
+ -> Extract spectrum from a pixel
+  -> Ressample it
+   -> Shift it
+    -> Cut in a FSR
+     -> Underssample it
+      -> Store in the data-cube
+       -> PHC Data-Cube
+
+Syntax:	
+	phmapply [-h] [-o output] [-q] [-n NPOINTS] cube_file map_file
+
+6) Wavelength Calibration (Not finished yet) --------------------------------------------------------------------------
+   - Needs only the reference spectrum, i.e., the spectrum at the center of the rings at two different wavelengths
+     and two different orders.
+   - Very sensitive.
+   - Independent from the phase-map correction.
+

@@ -16,8 +16,12 @@ import os
 import sys
 import time
 
+<<<<<<< HEAD
 from scipy.interpolate import UnivariateSpline
 
+=======
+from scipy.interpolate import UnivariateSpline 
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
 
 def main():
     
@@ -96,12 +100,37 @@ def main():
         print("[!] Map file is not really an image.")
         print("[!] Leaving now.\n")
         sys.exit()
+<<<<<<< HEAD
 
     check_instrument(cube_file)
     mode = check_mode(cube_file)
 
     ## Phase-Correction for iBTF data-cube ------------------------------------
     if mode.lower() in ['ibtf']:
+=======
+    
+    if data_cube.header['INSTRUME'].upper() != 'BTFI':
+        print("[!] The data-cube was not obtained with BTFI instrument.")
+        print("[!] Leaving now.\n")
+        sys.exit()    
+    
+    if data_cube.header['INSTRMOD'].upper() in ['IBTF'] and v:
+        print("\n File obtained through an iBTF scan.")
+        mode = 'ibtf'
+
+    elif data_cube.header['INSTRMOD'].upper() in ['FP', 'FABRY-PEROT'] and v:
+        print("\n File obtained through a FP scan.")
+        mode = 'fabry-perot'
+    
+    else:
+        if v: 
+            print("[!] File was not obtained from FP or iBTF.")
+            print("[!] Leaving now.\n")
+            sys.exit()
+    
+    ## Phase-Correction for iBTF data-cube ------------------------------------
+    if mode == 'ibtf':
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
         
         # Padding data-cube with zeros ----------------------------------------
         if v: 
@@ -117,12 +146,17 @@ def main():
         
         data_cube.data = numpy.vstack((pad, data_cube.data))
         data_cube.data = numpy.vstack((data_cube.data, pad))
+<<<<<<< HEAD
         L, M, N = data_cube.data.shape
 
         try:
             data_cube.header['CRPIX3'] = data_cube.header['CRPIX3'] + phm_max
         except KeyError:
             data_cube.header['CRPIX3'] = L
+=======
+        data_cube.header['CRPIX3'] = data_cube.header['CRPIX3'] + phm_max
+        L, M, N = data_cube.data.shape
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
         
         if v:
             print(" Cube shape after padding: %d x %d x %d" % (N, M, L));
@@ -142,9 +176,15 @@ def main():
                 shift = phase_map.data[i,j]
                 data_cube.data[:,i,j] = shiftSpectrum(spec, shift, args.npoints)
         if v: print(" Done.")
+<<<<<<< HEAD
 
     ## Phase-Correction for Fabry-Perot data-cube ------------------------------
     elif mode.lower() in ['fabry-perot', 'fp']:
+=======
+    
+    ## Phase-Correction for Fabry-Perot data-cube ------------------------------
+    elif mode == 'fabry-perot':
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
     
         M = data_cube.header['NAXIS1']
         N = data_cube.header['NAXIS2']
@@ -171,6 +211,7 @@ def main():
             FSR = input(" > ")
         
 <<<<<<< HEAD
+<<<<<<< HEAD
         FSR = round(FSR / sample)  # From BCV to Channels
 =======
         FSR = round(FSR / sample) # From BCV to Channels
@@ -188,6 +229,19 @@ def main():
             print("[!] Reference pixel out of field.")
             print("[!] Skipping reference pixel map subtraction.")
             pass
+=======
+        FSR = round(FSR / sample) # From BCV to Channels
+        if v:
+            print(" Free-Spectral-Range is %d channels" % FSR)
+        
+        fsr = FSR * args.npoints # From Channels to nPoints
+        fsr = int(round(fsr))
+        if v:
+            print(" Free-Spectral-Range is %d points" % fsr)
+        
+        # Assure that the reference spectrum will not be moved -----------------
+        phase_map.data = phase_map.data - phase_map.data[ref_y, ref_x]
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
         phase_map.data = -1 * phase_map.data
         
         # Converting phase-map values to channels ------------------------------
@@ -195,13 +249,17 @@ def main():
         
         # Converting phase-map from channels to number of points --------------
         phase_map.data = phase_map.data * args.npoints
+<<<<<<< HEAD
         phase_map.data = numpy.round(phase_map.data, 0)
         phase_map.data = phase_map.data.astype(int)
+=======
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
         
         # Applying phase-map --------------------------------------------------
         if v: 
             print("\n Applying phase-map:")
         
+<<<<<<< HEAD
         ## Cut the data-cube in a single FSR
         end_of_cube = min(int(round(FSR)), data_cube.data.shape[0])
         data_cube.data = data_cube.data[0:end_of_cube,:, :]
@@ -217,20 +275,29 @@ def main():
         print(z.min(), z.max())
         print(new_z.min(), new_z.max())
 
+=======
+        z = numpy.arange(data_cube.header['NAXIS3'])
+        new_z = numpy.arange(0, z.size, 1.0 / args.npoints)
+    
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
         for i in range(M):
             for j in range(N):
                 
                 # Extracting a spectrum 
                 spec = data_cube.data[:,j,i]
+<<<<<<< HEAD
                 head = spec[:FSR//2]
                 tail = spec[FSR//2:]
                 spec = numpy.append(tail, spec)  ## Tail at the beggining
                 spec = numpy.append(spec, head)  ## Head at end
+=======
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
                 dz = phase_map.data[j,i]
                 
                 # Re-sample spectrum
                 spline = UnivariateSpline(z, spec, s=0.0)
                 new_spec = spline(new_z)
+<<<<<<< HEAD
 
                 # Cutting spectrum
                 new_spec = new_spec[fsr:2*fsr]
@@ -250,13 +317,36 @@ def main():
                 # data_cube.data[:,j,i] = spec
                 data_cube.data[:FSR,j,i] = new_spec[fsr:2*fsr:args.npoints]
 
+=======
+                
+                # Cutting spectrum
+                new_z = new_z[0:fsr+1]
+                new_spec = new_spec[0:fsr+1]
+                
+                # Shifting spectrum
+                new_spec = numpy.roll(new_spec, int(dz))
+                
+                # Under-sampling spectrum
+                spline = UnivariateSpline(new_z, new_spec, s=0.0)
+                spec = spline(z)
+                
+                # Storing new spectrum
+                data_cube.data[:,j,i] = spec
+                
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
                 # Giving a feedback to the user
                 if v: 
                     temp = (((i + 1) * 100.00 / M))
                     sys.stdout.write('\r  %2.2f%% ' % temp)
                     sys.stdout.flush()
+<<<<<<< HEAD
             # plt.show()
 
+=======
+                     
+        end_of_cube = min(int(round(FSR)), data_cube.data.shape[0])
+        data_cube.data = data_cube.data[0:end_of_cube, :, :]
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
         if v: print(" Done.")
         
     else:
@@ -273,6 +363,7 @@ def main():
               (end // 3600, end % 3600 // 60, end % 60));     
         print(" All done!\n");
 
+<<<<<<< HEAD
 def check_instrument(filename, instrument='btfi', keyword='INSTRUME'):
     """
     Method written to check the instrument.
@@ -317,6 +408,8 @@ def check_mode(filename, keyword='INSTRMOD'):
 
     return instrument_mode
 
+=======
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
 ## Method shiftSpectrum ========================================================
 def shiftSpectrum(spec, dz, nPoints=100):
     
@@ -389,6 +482,7 @@ def shift_spectrum(spec, dz, fsr=-1, sample=1.0, n_points=100):
 
     return spec
 
+<<<<<<< HEAD
 def error(my_string):
     s = bcolors.FAIL + '[ERROR] ' + bcolors.ENDC
     s = s + my_string
@@ -425,6 +519,8 @@ def round(number):
     return number
 =======
 >>>>>>> 7101cb74e478b9636822eb1fa033b0fe9eecdaf6
+=======
+>>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
 
 #===============================================================================
 if __name__ == '__main__':
