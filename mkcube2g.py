@@ -67,7 +67,6 @@ def main():
     if v:
         print("\n mkCube")
         print(" by Bruno Quint (bquint@astro.iag.usp.br)")
-        print(" Fev 2014 - Version 2f")
         print(" Apr 2014 - Version 2g")
         print("\n Starting program.")
 
@@ -77,7 +76,10 @@ def main():
 
     header = pyfits.getheader(list_of_files[0])
     if v:
-        print(" Instrument mode: %s" % header['INSTRMOD'].upper())
+        try:
+            print(" Instrument mode: %s" % header['INSTRMOD'].upper())
+        except KeyError:
+            print(" Instrument mode not found. No calibration for third axis will be added.")
         print(" %s files will be used." % number_of_files)
         print(" Ok.")
 
