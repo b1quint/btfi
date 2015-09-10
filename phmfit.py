@@ -2,11 +2,8 @@
 #-*- codign: utf8 -*-
 """
     2014.04.16 15:51 - Fixed keyword to access phase-map sampling.
-<<<<<<< HEAD
     2014.08.25 18:30 - Fixed ref_x/ref_y
                      - Show phmap, ref_x/ref_y, npoints
-=======
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
 """
 from __future__ import division, print_function
 
@@ -22,22 +19,15 @@ def main():
     # Parsing arguments -------------------------------------------------------
     parser = argparse.ArgumentParser(description="Fits an existing phase-map.")
     
-<<<<<<< HEAD
     parser.add_argument('filename',
                         type=str,
                         help="Input phase-map name.")
 
-=======
-    parser.add_argument('filename', 
-                        type=str, 
-                        help="Input phase-map name.")
-    
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
     parser.add_argument('-i', '--interactions', default=5, type=int, 
                         help="Number of interactions in the process [5]")
     
-    parser.add_argument('-n', '--npoints', default=2500, type=int,
-                        help="Number of points that will be used to fit" +
+    parser.add_argument('-n', '--npoints', default=50, type=int,
+                        help="Number of points that will be used to fit " +
                         "the phase-map [50]")
 
     parser.add_argument('-o', '--output', type=str, default=None,
@@ -55,25 +45,18 @@ def main():
         print("\n Phase-Map Fitting for BTFI")
         print(" by Bruno Quint & Fabricio Ferrari")
         print(" version 0.0a - Jan 2014")
-<<<<<<< HEAD
         print("")
 
+    #args.filename = "/data/BTFI/20140402/CALIBRATION/Ne_6600.5-16.3/scanD/cubeNeLamp_6600.5-16.3_scanD--obs_phmap.fits"
     check_dimensions(args.filename, dimensions=2)
 
     # Loading observed map ----------------------------------------------------
     if v:
         print(" Loading file: %s" % args.filename)
-=======
-        
-    # Loading observed map ----------------------------------------------------
-    if v: 
-        print("\n Loading file: %s" % args.filename)        
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
     phase_map = pyfits.open(args.filename)[0]
     
     # Check if file was obtained with BTFI instrument
     header = phase_map.header
-<<<<<<< HEAD
     try:
         if header['INSTRUME'].upper() not in ['BTFI'] and v:
             if v: print(" [Warning]: %s file was not obtained with BTFI instrument."
@@ -87,15 +70,6 @@ def main():
     if mode == 'ibtf':
         if v:
             print(" File obtained through an iBTF scan.")
-=======
-    if header['INSTRUME'].upper() not in ['BTFI'] and v:
-        if v: print(" [Warning]: %s file was not obtained with BTFI instrument."
-                     % args.filename)
-
-    # Check whether data-cube was obtained from a FP scan or an iBTF scan
-    if header['INSTRMOD'].upper() in ['IBTF'] and v:
-        if v: print(" File obtained through an iBTF scan.")
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
     
         width = phase_map.header['naxis1']
         height = phase_map.header['naxis2']
@@ -116,7 +90,7 @@ def main():
         plt.xlabel('Observed Map')
         
         # Starting fitting process ------------------------------------------------
-        npoints = numpy.sqrt(args.npoints).astype(int)
+        npoints = args.npoints
         if v:
             print("\n Starting phase-map fitting.")
             print(" %d x %d points will be used in the process." %
@@ -157,7 +131,7 @@ def main():
             
         if v:
             p = params
-            print("  phi(x,y) = %.2f + %.2fx + %.2fy" % (p[0], p[1], p[2])) 
+            print("  phi(x,y) = %.2f + %.2fx + %.2fy" % (p[0], p[1], p[2]))
             print("  Error abs min: %f" % numpy.abs(e).min())
             print("  Error avg: %f" % e.mean())
             print("  Error std: %f" % e.std())
@@ -175,9 +149,9 @@ def main():
         plt.imshow(Z, **plt_config)
         plt.xticks([]), plt.yticks([])
         plt.xlabel("Fitted map")
-            
+
+        plt.tight_layout()
         plt.show()
-<<<<<<< HEAD
 
         ref_x = header['PHMREFX']
         ref_y = header['PHMREFY']
@@ -191,13 +165,7 @@ def main():
             
     # Fitting phase-map for a Fabry-Perot Map ---------------------------------
     elif mode == 'fp':
-=======
-        print("")
-            
-    # Fitting phase-map for a Fabry-Perot Map ---------------------------------
-    elif header['INSTRMOD'].upper() in ['FP', 'FABRY-PEROT']:
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
-        npoints = numpy.sqrt(args.npoints).astype(int)
+        npoints = int(args.npoints)
 
         if v: 
             print(" File obtained through a Fabry-Perot scan.")
@@ -205,10 +173,7 @@ def main():
             print(" %d x %d points will be used in the process." %
                    (npoints, npoints))
 
-<<<<<<< HEAD
         # Read data
-=======
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
         width = header['NAXIS1']
         height = header['NAXIS2']
         ref_x = header['PHMREFX']
@@ -217,14 +182,10 @@ def main():
         sampling = header['PHMSAMP']
         FSR = header['PHMFSR']
         phmap = phase_map.data
-<<<<<<< HEAD
 
         # From coordinates to pixels
-        try:
-            ref_x = header['CRPIX1'] + (ref_x - header['CRVAL1']) / header['CDELT1']
-            ref_y = header['CRPIX2'] + (ref_y - header['CRVAL2']) / header['CDELT2']
-        except KeyError:
-            warning(" WCS not found. Using phisical coordinates.")
+        ref_x = header['CRPIX1'] + (ref_x - header['CRVAL1']) / header['CDELT1']
+        ref_y = header['CRPIX2'] + (ref_y - header['CRVAL2']) / header['CDELT2']
 
         phmap = phmap - phmap[ref_y, ref_x]
 
@@ -249,16 +210,6 @@ def main():
             phmap_axes.grid()
             phmap_figure.colorbar(phmap_imshow)
 
-=======
-        phmap = phmap - phmap[ref_y, ref_x]
-        
-        x = (numpy.linspace(0.15, 0.85, npoints) * width).astype(int)
-        y = (numpy.linspace(0.15, 0.85, npoints) * height).astype(int)
-        X, Y = numpy.meshgrid(x, y)
-        R = numpy.sqrt((X - ref_x) ** 2 + (Y - ref_y) ** 2)
-        Z = phmap[Y, X]
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
-        
         x = numpy.ravel(X)
         y = numpy.ravel(Y)
         r = numpy.sqrt((x - ref_x) ** 2 + (y - ref_y) ** 2)
@@ -285,31 +236,8 @@ def main():
         if v:
             print("  Parabola is %s" % ('up' if sign > 0 else 'down'))
 
-<<<<<<< HEAD
         # Tell me the limits to fit the first parabola
         where = numpy.argmin(numpy.abs(r[dz_abs >= FSR / 2][0] - r))
-
-=======
-        # Tell me the limits to fits the first parabola
-        where = numpy.argmin(numpy.abs(r[dz_abs >= FSR / 2][0] - r))
-
-        # where = numpy.argmin(dz_sign) if sign > 0 else numpy.argmax(dz_sign)
-        # print(where)
-
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
-        # Plot the gradient
-        if args.show_plots:
-            plt.figure(figsize=(16,7))
-            plt.subplot(2,2,3)
-            plt.plot(r[1:], dz, 'b-')
-            plt.gca().yaxis.set_label_position("right")
-            plt.axvline(r[where], color='black', lw=2, ls='--')
-            plt.axhline(FSR / 2, color='red', ls='--', label="FSR")
-            plt.axhline(- FSR / 2, color='red', ls='--')
-            plt.xlabel('Radius [px]')
-            plt.ylabel('Gradient \n [%s]' % unit)
-            plt.legend(loc='best')
-            plt.grid()
 
         # This is the first fit
         p = numpy.polyfit(r[:where], z[:where], 2)
@@ -318,7 +246,7 @@ def main():
 
         # Plot the data before correction
         if args.show_plots:
-            plt.subplot(2,2,1)
+            plt.subplot(2,1,1)
             plt.plot(r[:where], z[:where], 'b.', alpha=0.25, label='Not to be fixed')
             plt.plot(r[where:], z[where:], 'r.', alpha=0.25, label='Data to be fixed')
             plt.plot(rr, zz, 'k-', lw=2)
@@ -330,24 +258,12 @@ def main():
             plt.grid()
 
         # Displace the FSR
-        error = numpy.abs(z - numpy.polyval(p, r) + sign * FSR)
-
-        # Plot error
-        if args.show_plots:
-            plt.subplot(2,2,4)
-            plt.plot(r, error, 'k.', alpha=0.25)
-            # plt.gca().yaxis.tick_right()
-            plt.gca().yaxis.set_label_position("right")
-            plt.xlabel('Radius [px]')
-            plt.ylabel('Error \n [%s]' % unit)
-            plt.ylim(ymin=-50, ymax=1.1*error.max())
-            plt.grid()
-
-        condition = (error > 2 * sampling)
+        error = numpy.abs(z - numpy.polyval(p, r))
+        condition = (error < 3 * sampling)
 
         # Plot data after correction
         if args.show_plots:
-            plt.subplot(2,2,2)
+            plt.subplot(2,1,2)
             plt.plot(r[condition], z[condition], 'b.', alpha=0.25,
                      label='Not fixed data')
             plt.plot(r[~condition], z[~condition] + sign * FSR, 'r.',
@@ -358,7 +274,7 @@ def main():
             plt.grid()
 
         # This is the second fit
-        z = numpy.where(error >= 2 * sampling, z, z + sign * FSR)
+        z = numpy.where(condition, z, z + sign * FSR)
         p = numpy.polyfit(r, z, 2)
 
         if args.show_plots:
@@ -370,7 +286,7 @@ def main():
         error = z - numpy.polyval(p, r)
 
         if v:
-            print("  phi(x,y) = %.2e x^2 + %.2e x + %.2e " % (p[0], p[1], p[2]))
+            print("  phi(r) = %.2e r^2 + %.2e r + %.2e " % (p[0], p[1], p[2]))
             print("  Error abs min: %f" % numpy.abs(error).min())
             print("  Error avg: %f" % error.mean())
             print("  Error std: %f" % error.std())
@@ -394,6 +310,7 @@ def main():
             print(" All done.\n")
 
         if args.show_plots:
+            plt.tight_layout()
             plt.show()
         
     else:
@@ -401,7 +318,6 @@ def main():
         if v: print(" [Warning]: Don't know what to do. Leaving now.\n")
         from sys import exit
         exit()
-<<<<<<< HEAD
 
 def check_dimensions(filename, dimensions=3, keyword='NAXIS'):
     """
@@ -412,11 +328,11 @@ def check_dimensions(filename, dimensions=3, keyword='NAXIS'):
 
     header = pyfits.getheader(filename)
 
-    if not keyword in header:
-        data = pyfits.getdata(filename)
+    if not 'NAXIS' in header:
+        data = pyfits.getdata(args.filename)
         ndim = data.ndim
     else:
-        ndim = header[keyword]
+        ndim = header['NAXIS']
 
     if ndim is not dimensions:
         error(" INVALID DATA: wrong number of dimensions")
@@ -448,10 +364,6 @@ def check_mode(filename, keyword='INSTRMOD'):
 
     return instrument_mode
 
-=======
-    
-#==============================================================================
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
 def get_colormap():
     
     from matplotlib import colors
@@ -474,7 +386,6 @@ def get_colormap():
     
     return colors.LinearSegmentedColormap('heaven_hell',cdict,256)
 
-<<<<<<< HEAD
 def error(my_string):
     s = bcolors.FAIL + '[ERROR] ' + bcolors.ENDC
     s = s + str(my_string)
@@ -504,7 +415,5 @@ class bcolors:
         self.FAIL = ''
         self.ENDC = ''
 
-=======
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
 if __name__ == '__main__':
     main()

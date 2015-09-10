@@ -239,23 +239,33 @@ def main():
     header['CTYPE2'] = 'LINEAR'
     header['CUNIT2'] = 'PIXEL'
 
-    if header['INSTRMOD'].lower() in ['fp', 'fabry-perot']:
-        header['CRPIX3'] = 1
-        header['CRVAL3'] = float(header['FPZINIT'])
-        header['CDELT3'] = float(header['FPZDELT'])
-        header['CTYPE3'] = 'LINEAR'
-        header['CUNIT3'] = 'BNV'
-        header['C3_3'] = float(header['FPZDELT'])
+    try:
+        if header['INSTRMOD'].lower() in ['fp', 'fabry-perot']:
+            header['CRPIX3'] = 1
+            header['CRVAL3'] = float(header['FPZINIT'])
+            header['CDELT3'] = float(header['FPZDELT'])
+            header['CTYPE3'] = 'LINEAR'
+            header['CUNIT3'] = 'BNV'
+            header['C3_3'] = float(header['FPZDELT'])
 
-    elif header['INSTRMOD'].lower() in ['ibtf']:
-        header['CRPIX3'] = 1
-        header['CRVAL3'] = float(header['TFAINIT'])
-        header['CDELT3'] = float(header['TFADELT'])
-        header['CTYPE3'] = 'LINEAR'
-        header['CUNIT3'] = 'degrees'
-        header['C3_3'] = float(header['TFADELT'])
+        elif header['INSTRMOD'].lower() in ['ibtf']:
+            header['CRPIX3'] = 1
+            header['CRVAL3'] = float(header['TFAINIT'])
+            header['CDELT3'] = float(header['TFADELT'])
+            header['CTYPE3'] = 'LINEAR'
+            header['CUNIT3'] = 'degrees'
+            header['C3_3'] = float(header['TFADELT'])
 
-    else:
+        else:
+            print("[!] Invalid BTFI Instrument Mode.")
+            print("[!] Dummy calibration will be added to the data-cube.")
+            header['CRPIX3'] = 1
+            header['CRVAL3'] = 1
+            header['CDELT3'] = 1
+            header['CTYPE3'] = 'LINEAR'
+            header['CUNIT3'] = 'channel'
+            header['C3_3'] = 1
+    except KeyError:
         print("[!] Invalid BTFI Instrument Mode.")
         print("[!] Dummy calibration will be added to the data-cube.")
         header['CRPIX3'] = 1
