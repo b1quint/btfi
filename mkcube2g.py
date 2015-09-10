@@ -119,13 +119,10 @@ def main():
         print("\n Combining images on each frame using algorithm: %s" %
               args.algorithm)
 
-<<<<<<< HEAD
     # print how much RAM we will use
     memory_needed_mb = imWidth * imHeight * imDepth * 4 / ( 1024 * 1024 )
     print ( " We need %d MB of RAM.\n" % memory_needed_mb )
 
-=======
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
     if args.algorithm == "average":
         combFunction = numpy.average
     elif args.algorithm == "median":
@@ -142,13 +139,11 @@ def main():
         sys.stderr.write(" Sorry. The cube to be built is too big.")
         sys.stderr.write(" Try making a smaller one.\n\n")
         sys.exit()
-<<<<<<< HEAD
+
     except MemoryError:
         sys.stderr.write ( " ERROR: Numpy threw a MemoryError exception.\n" )
         sys.stderr.write ( "        It is probable that the OS could not allocate a large enough chunk of memory.\n\n" )
         sys.exit ( )
-=======
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
 
     if v:
         print(" Ok.")
