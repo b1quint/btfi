@@ -72,7 +72,6 @@ def main():
                    show=args.show, verbose=v, ref=args.ref,
                    output=args.output)
 
-    # All done! ---------------------------------------------------------------
     end = time.time() - start
     if v:
         print("\n  Total time elapsed: %02d:%02d:%02d" %
@@ -379,7 +378,7 @@ class PhaseMap:
 
         fit_func = lambda p, x: p[0] * numpy.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
         err_func = lambda p, x, y: y - fit_func(p, x)
-        pars = [sss.max(), zz[sss.argmax()], 10]
+        pars = [sss.max(), zz[sss.argmax()], numpy.abs(3 * (zz[1] - zz[0]))]
         pars, _ = leastsq(err_func, pars, args=(zz, sss))
         fwhm_gauss = 2.35482 * pars[2]
 
@@ -585,6 +584,7 @@ class PhaseMapFP(PhaseMap):
             self.extract_from = self.input_file
 
         self.phase_map = self.extract_phase_map()
+        print(self.phase_map.dtype)
         self.save()
 
         return
@@ -930,7 +930,6 @@ class PhaseMapFP(PhaseMap):
         except KeyError:
             h['PHMSAMP'] = 1
 
-
         self.phase_map = self.phase_map - self.phase_map[self.ref_y, self.ref_x]
 
         # TODO Remove 3rd axis calibration residuals
@@ -940,6 +939,7 @@ class PhaseMapFP(PhaseMap):
 
         filename = safe_save(f + "--ref_spec.fits", overwrite=True, verbose=v)
         self.print(" Saving reference spectrum to file: %s" % filename)
+        h['BITPIX'] = -64
         pyfits.writeto(filename, self.ref_s, h, clobber=True)
 
         return
