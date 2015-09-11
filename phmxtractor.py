@@ -12,6 +12,7 @@ from __future__ import division, print_function
 
 import argparse
 import astropy.io.fits as pyfits
+import logging
 import matplotlib.pyplot as pyplot
 import numpy
 import time
@@ -21,35 +22,48 @@ import sys
 
 
 def main():
-    # Parse arguments ---------------------------------------------------------
-    parser = argparse.ArgumentParser(description="Extracts the phase-map" +
-                                                 "from a fits file containing a data" +
-                                                 "-cube.")
 
+    fmt = MyFormatter()
+    hdlr = logging.StreamHandler(sys.stdout)
+
+    hdlr.setFormatter(fmt)
+    logging.root.addHandler(hdlr)
+
+    info = logging.root.info
+    debug = logging.root.debug
+    error = logging.root.error
+    warn = logging.root.warning
+
+    parser = argparse.ArgumentParser(
+        description="Extracts the phase-map from a fits file containing a"
+                    " data -cube.")
     parser.add_argument('-c', '--correlation', action='store_true',
                         help="Use correlation cube? true/[FALSE]")
-
     parser.add_argument('filename', type=str, help="Input data-cube name.")
-
     parser.add_argument('-o', '--output', type=str, default=None,
                         help="Name of the output phase-map file.")
-
-    parser.add_argument('-q', '--quiet', action='store_true',
-                        help="Run program quietly. true/[FALSE]")
-
+    parser.add_argument('-v', '--verbose', type=int, default=2,
+        help="Set verbose level: 0 - Quiet, 1 - Warnings, 2 - Info, 3 - Debug."+
+             " Default: 2")
     parser.add_argument('-r', '--ref', type=int, nargs=2, default=None,
                         help="Reference pixel for the correlation cube.")
-
     parser.add_argument('-s', '--show', action='store_true',
                         help="Show plots used in the process. true/[FALSE]")
-
     args = parser.parse_args()
 
-    # Starting program --------------------------------------------------------
-    v = not args.quiet
-    start = time.time()
-    print(args.ref)
+    if args.verbose == 0:
+        logging.root.setLevel(logging.CRITICAL)
+    elif args.verbose == 1:
+        logging.root.setLevel(logging.WARNING)
+    elif args.verbose == 2:
+        logging.root.setLevel(logging.INFO)
+    elif args.verbose == 3:
+        logging.root.setLevel(logging.DEBUG)
+    else:
+        error("Wrong verbose level set. Please review and run again." +
+              " Leaving now.")
 
+    start = time.time()
     if v:
         print("")
         print(" Phase-Map Extractor")
@@ -217,13 +231,41 @@ def safe_save(name, extension=None, overwrite=False, verbose=False):
     return name
 
 
-# ==============================================================================
-def get_refx_pixel():
-    """
-    Return the position of the reference X in pixels.
-    """
+# Custom formatter
+class MyFormatter(logging.Formatter):
 
-    return
+    err_fmt  = "ERROR: %(msg)s"
+    dbg_fmt  = "DBG: %(module)s: %(lineno)d: %(msg)s"
+    info_fmt = "%(msg)s"
+
+
+    def __init__(self, fmt="%(levelno)s: %(msg)s"):
+        logging.Formatter.__init__(self, fmt)
+
+
+    def format(self, record):
+
+        # Save the original format configured by the user
+        # when the logger formatter was instantiated
+        format_orig = self._fmt
+
+        # Replace the original format with one customized by logging level
+        if record.levelno == logging.DEBUG:
+            self._fmt = MyFormatter.dbg_fmt
+
+        elif record.levelno == logging.INFO:
+            self._fmt = MyFormatter.info_fmt
+
+        elif record.levelno == logging.ERROR:
+            self._fmt = MyFormatter.err_fmt
+
+        # Call the original formatter class to do the grunt work
+        result = logging.Formatter.format(self, record)
+
+        # Restore the original format configured by the user
+        self._fmt = format_orig
+
+        return result
 
 
 class PhaseMap:
