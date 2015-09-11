@@ -42,42 +42,26 @@ def main():
     parser.add_argument('filename', type=str, help="Input data-cube name.")
     parser.add_argument('-o', '--output', type=str, default=None,
                         help="Name of the output phase-map file.")
-    parser.add_argument('-v', '--verbose', type=int, default=2,
-        help="Set verbose level: 0 - Quiet, 1 - Warnings, 2 - Info, 3 - Debug."+
-             " Default: 2")
+    parser.add_argument('-q', '--quiet', action='store_true',
+        help="Run program quietly.")
     parser.add_argument('-r', '--ref', type=int, nargs=2, default=None,
                         help="Reference pixel for the correlation cube.")
     parser.add_argument('-s', '--show', action='store_true',
                         help="Show plots used in the process. true/[FALSE]")
     args = parser.parse_args()
-
-    if args.verbose == 0:
-        logging.root.setLevel(logging.CRITICAL)
-    elif args.verbose == 1:
-        logging.root.setLevel(logging.WARNING)
-    elif args.verbose == 2:
-        logging.root.setLevel(logging.INFO)
-    elif args.verbose == 3:
-        logging.root.setLevel(logging.DEBUG)
-    else:
-        error("Wrong verbose level set. Please review and run again." +
-              " Leaving now.")
+    v = not args.quiet
 
     start = time.time()
     if v:
-        print("")
-        print(" Phase-Map Extractor")
-        print(" by Bruno Quint & Fabricio Ferrari")
-        print(" version 0.1c - May 2014")
+        print("\n Phase-Map Extractor\n by Bruno Quint & Fabricio Ferrari")
+        print(" Version 0.1d - Sep 2015")
         print(" Extracting phase-map from file: %s" % args.filename)
 
-    # Checking input data -----------------------------------------------------
     if v:
         print(" Checking data-cube for phase-correction.")
     check_dimensions(args.filename)
     check_instrument(args.filename)
 
-    # Selecting BTFI mode and extracting phase-map -----------------------------
     mode = check_mode(args.filename)
     if mode == 'ibtf':
         PhaseMap_iBTF(args.filename, correlation=args.correlation,
