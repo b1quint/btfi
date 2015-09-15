@@ -10,6 +10,8 @@
     2015.09.11
 """
 from __future__ import division
+# from builtins import input
+
 import argparse
 import astropy.io.fits as pyfits
 import logging
@@ -17,11 +19,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 
-from scipy.signal import argrelextrema
 from scipy.interpolate import splev, splrep
 
-def main():
+import matplotlib as mpl
+mpl.rcParams['toolbar'] = 'None'
 
+
+def main():
     # Create and setup log ---
     fmt = MyFormatter()
     hdlr = logging.StreamHandler(sys.stdout)
@@ -32,12 +36,12 @@ def main():
 
     # Parse command line arguments ---
     parser = argparse.ArgumentParser(
-        description="Calculate the wavelength calibration for FP observation.")
+        description=u'Calculate the wavelength calibration for FP observation.')
     parser.add_argument('-v', '--verbose_level', default=1, type=int,
-                        help="Set verbose level: 0 - Quiet, 1 - Info," + \
-                             "2 - Warnings, 3 - Debug. (Default: 1)")
-    parser.add_argument('input_files', type=str, nargs='+',
-                        help="Input data-cube(s) for calibration.")
+                        help=u'Set verbose level: 0 - Quiet, 1 - Info,' +
+                             u"2 - Warnings, 3 - Debug. (Default: 1)")
+    parser.add_argument("input_files", type=str, nargs='+',
+                        help=u"Input data-cube(s) for calibration.")
 
     args = parser.parse_args()
 
@@ -51,25 +55,26 @@ def main():
     elif args.verbose_level == 3:
         log.setLevel(logging.DEBUG)
     else:
-        log.error("Invalid log level. Setting DEBUG level.")
+        log.error(u"Invalid log level. Setting DEBUG level.")
         log.setLevel(logging.DEBUG)
 
-    log.info("\n    Fabry-Perot Wavelength Calibration\n" + \
-             "    by Bruno C. Quint - bquint at ctio dot noao dot edu\n" + \
-             "    Version 0.0a\n")
+    log.info(u"\n    Fabry-Perot Wavelength Calibration\n" + \
+             u"    by Bruno C. Quint - bquint at ctio dot noao dot edu\n" + \
+             u"    Version 0.0a\n")
 
     # Read files and extract spectra ---
     if len(args.input_files) == 0:
-        log.error("You must set at leat one file. Leaving now.")
+        log.error(u"You must set at leat one file. Leaving now.")
         sys.exit()
 
     list_of_spectra = []
+    pairs = {}
     for input_file in args.input_files:
-        log.info("Reading file {}".format(input_file))
+        log.info(u"Reading file {}".format(input_file))
         try:
             h = pyfits.getheader(input_file)
         except IOError:
-            log.error("{} not found.".format(input_file))
+            log.error(u"{} not found.".format(input_file))
             continue
 
         if h['NAXIS'] == 1:
@@ -78,8 +83,8 @@ def main():
                 z = (np.arange(h['NAXIS1']) - h['CRPIX1'] + 1) * \
                     h['CDELT1'] + h['CRVAL1']
             except KeyError:
-                log.warning("Spectral calibration not found in " + \
-                            "{}'s header.".format(input_file))
+                log.warning(u"Spectral calibration not found in " + \
+                            u"{}'s header.".format(input_file))
                 z = np.arange(h['NAXIS1'])
         else:
             log.warning()
@@ -93,23 +98,43 @@ def main():
         snew = splev(znew, tck, der=0)
 
         # Plot --
-        log.info("A new window has opened. Please, click near the peak(s)" + \
+        log.info(u"A new window has opened. Please, click near the peak(s)" + \
                  " that you want to identify.")
+        log.info(u"Click near a peak to add it.")
+        log.info(u"Press:")
+        log.info(u"<space_bar> or <ENTER> to accept the lines selected.")
+        log.info(u'<d> near a line to delete it.')
+        log.info(u'<c> to clear all lines and start over.')
+        log.info(u'<ESCAPE> to ignore the current file and jump to the next.')
+        log.info(u'<Q> to leave the program.')
 
         # plt.ion()
-        p = PointPicker(z, s, znew, snew)
-        plt.show()
+        p = PointPicker(input_file, z, s, znew, snew)
+
+        for x in p.xs:
+            w = input(u"Type a wavelength for the line at " +
+                           u"{:0.1f}:\n> ".format(x))
+            if w in pairs.keys():
+                pairs[w].append(x)
+            else:
+                pairs[w] = [x]
+
+    # Calculating the wavelength calibration ---
+    log.debug(pairs)
+    curvature = 0
+    while curvature not in [1,2]:
+        curvature = raw_input(u"    Do the rings increase or decrease with Z?" +
+            u"    1 - Increase\n    2 - Decrease\n > ")
 
     return 0
 
 
 class PointPicker(object):
-
     log = logging.getLogger(__name__)
 
-    def __init__(self,x, y, xnew, ynew):
+    def __init__(self, filename, x, y, xnew, ynew):
 
-        self.log.debug("Creating object.")
+        self.log.debug(u"Creating object.")
         self.x = xnew
         self.y = ynew
 
@@ -122,65 +147,118 @@ class PointPicker(object):
 
         self.points2d, = self.ax.plot(x, y, 'bo')
         self.lines2d, = self.ax.plot(xnew, ynew, 'b-', picker=10)
+        self.vlines = []
+        self.xs = []
 
         self.fig.canvas.mpl_connect('pick_event', self.onpick)
         self.fig.canvas.mpl_connect('key_press_event', self.onpress)
 
+        self.ax.set_title(filename)
         self.ax.set_ylim(ymin=ymin, ymax=ymax)
+        self.ax.set_xlabel(u"Spectral Units [?]")
+        self.ax.set_ylabel(u"Intensity [?]")
         self.ax.grid()
-        self.log.debug("Fininsh creation and leaving constructor.")
+        self.log.debug(u"Fininsh creation and leaving constructor.")
+
+        plt.show()
         return
 
+    def accept_lines(self, event):
+        """Accept the current lines drawn"""
+        for line in self.ax.lines[2:]:
+            x, _ = line.get_xdata()
+            self.xs.append(x)
+        plt.close('all')
+        return
+
+    def clear_lines(self, event):
+        """Delete all vertical lines in the plot."""
+        for l in self.vlines:
+            try:
+                l.remove()
+            except ValueError as e:
+                self.log.error(u"Runtime error - " + e.message)
+                pass
+        self.fig.canvas.draw()
+        return
+
+    def delete_line(self, event):
+        """Delete a single line near the cursor."""
+        for line in self.ax.lines[2:]:
+            xdata, _ = line.get_xdata()
+            self.log.debug(u"xdata = {0:0.2f}".format(xdata) +
+                           u", event.xdata = {0:0.2f}".format(event.xdata))
+            xdata_index = np.argmin(np.abs(self.x - xdata))
+            exdata_index = np.argmin(np.abs(self.x - event.xdata))
+            self.log.debug(u"xdata_i = {:d}".format(xdata_index) +
+                           u", event.xdata_i = {:d}".format(exdata_index))
+            if np.abs(xdata_index - exdata_index) < 10:
+                try:
+                    line.remove()
+                except ValueError:
+                    pass
+            self.fig.canvas.draw()
+        return
 
     def onpress(self, event):
         """define some key press events"""
-        if event.key.lower() == 'q':
+        self.log.debug(u"Key pressed: " + event.key.lower())
+        if event.key == 'Q':
+            self.log.info(u'You pressed "Q". Leaving the program now.')
+            self.log.info(u'Bye!')
             sys.exit()
 
         if event.key.lower() == 'c':
-             self.clear_lines()
+            self.clear_lines(event)
 
         if event.key.lower() == 'd':
-             self.delete_line()
+            self.delete_line(event)
 
-        if event.key.lower() == '':
-            self.accept_lines()
+        if event.key.lower() in [' ', 'enter']:
+            self.accept_lines(event)
 
-        if event.key.lower() == '':
-            self.refuse_spectrum()
+        if event.key.lower() == 'escape':
+            self.refuse_spectrum(event)
 
-
-    def onpick(self,event):
+    def onpick(self, event):
         """Define what happens when one clicks near the data"""
         x = event.mouseevent.xdata
         y = event.mouseevent.ydata
-        self.log.debug('Object picked at x = {}, y = {}'.format(x, y))
+        self.log.debug(u'Object picked at x = {}, y = {}'.format(x, y))
 
         i = np.argmin(np.abs(x - self.x))
-        self.log.debug('Nearest index: {}'.format(i))
+        self.log.debug(u'Nearest index: {}'.format(i))
 
-        i0 = max(0, i-2)
-        iz = min(i+3, len(self.x))
+        i0 = max(0, i - 2)
+        iz = min(i + 3, len(self.x))
 
         slice_index = np.arange(0, 5) - 2
         index = -2
         while index != 0:
+            slice_index = slice_index[
+                i + slice_index >= 0]  # Protect right border
+            slice_index = slice_index[
+                i + slice_index <= len(self.x)]  # Protect left border
 
-            slice_index = slice_index[i + slice_index >= 0] # Protect right border
-            slice_index = slice_index[i + slice_index <= len(self.x)] # Protect left border
-            print(i + slice_index)
             yy = self.y[i + slice_index]
             index = np.argmax(yy) - 2
-            self.log.debug('Finding max index: {}, {}'.format(i, index))
+            self.log.debug(u'Finding max index: {}, {}'.format(i, index))
 
             i = i + 1 if index > 0 else i - 1
 
-        L =  self.ax.axvline(x=self.x[i], c='red')
+        L = self.ax.axvline(x=self.x[i], c='red')
+
         self.fig.canvas.draw()
+        self.vlines.append(L)
+        return
+
+    def refuse_spectrum(self, event):
+        """Ignore the current spectrum and its lines"""
+        plt.close('all')
+        return
 
 
 class TColors:
-
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
@@ -196,22 +274,21 @@ class TColors:
         self.FAIL = ''
         self.ENDC = ''
 
+
 # Custom formatter
 class MyFormatter(logging.Formatter):
+    info_fmt = u"    %(msg)s"
+    wrn_fmt = TColors.WARNING + "[W]" + TColors.ENDC + \
+              u" %(msg)s"
+    dbg_fmt = TColors.OKBLUE + "[D]" + TColors.ENDC + \
+              u" %(asctime)s %(filename)s %(funcName)s " + \
+              u" %(lineno)d: %(msg)s"
+    err_fmt = TColors.FAIL + "[E]" + TColors.ENDC + \
+              u" %(asctime)s %(filename)s %(funcName)s " + \
+              u" %(lineno)d: %(msg)s"
 
-    info_fmt = "    %(msg)s"
-    wrn_fmt  = TColors.WARNING + "[W]" + TColors.ENDC + \
-               " %(msg)s"
-    dbg_fmt  = TColors.OKBLUE + "[D]" + TColors.ENDC + \
-               " %(asctime)s %(filename)s %(funcName)s " + \
-               " %(lineno)d: %(msg)s"
-    err_fmt  = TColors.FAIL + "[E]" + TColors.ENDC + \
-               " %(asctime)s %(filename)s %(funcName)s " + \
-               " %(lineno)d: %(msg)s"
-
-    def __init__(self, fmt="%(levelno)s: %(msg)s"):
+    def __init__(self, fmt=u"%(levelno)s: %(msg)s"):
         logging.Formatter.__init__(self, fmt)
-
 
     def format(self, record):
 
