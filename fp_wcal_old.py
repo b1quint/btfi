@@ -10,13 +10,13 @@
     2015.09.11
 """
 from __future__ import division
+# from builtins import input
 
 import argparse
 import astropy.io.fits as pyfits
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import sys
 
 from scipy.interpolate import splev, splrep
@@ -42,6 +42,8 @@ def main():
                     u'asked during runtime. Wavelength 1 has to have two ' +
                     u'identified peaks and Wavelength 2 needs one identified '+
                     u'peak.')
+    # parser = argparse.ArgumentParser(
+    #     description=u'Calculate the wavelength calibration for FP observation.')
 
     parser.add_argument('-v', '--verbose_level', default=1, type=int,
                         help=u'Set verbose level: 0 - Quiet, 1 - Info,' +
@@ -54,6 +56,9 @@ def main():
                         help=u"Input FITS file for calibration containing w1.")
     parser.add_argument("--file2", default=None, type=str,
                         help=u"Input FITS file for calibration containing w2.")
+    # parser.add_argument("input_files", nargs='+', type=str,
+    #                     help=u"Input FITS file containing spectra at" +
+    #                          u"known wavelengths.")
 
     args = parser.parse_args()
 
@@ -75,39 +80,44 @@ def main():
              u"    by Bruno C. Quint - bquint at ctio dot noao dot edu\n" + \
              u"    Version 0.0a\n")
 
-    log.info(u"For the wavelength calibration you will need two wavelengths.\n"+
-             u"    One wavelength has to have two identified peaks.\n" +
-             u"    The other will have to have one identified peak.\n" +
-             u"    Press <ENTER> when you are ready.\n")
+    log.info(u"For the wavelength calibration you will need two wavelengths." +
+             u"One wavelength has to have two identified peaks. " +
+             u"The other will have to have one identified peak. " +
+             u"Press <ENTER> when you are ready. ")
     dummy = None
     while dummy is None:
         dummy = raw_input()
 
     if args.w1 == None:
         log.info(u"Now, please enter the first known wavelength in [A]:")
-        wavelength_1 = raw_input("  > ")
+        wavelength_1 = raw_input(" > ")
     else:
         wavelength_1 = args.w1
 
     if args.w2 == None:
         log.info(u"Now, enter the second known wavelength in [A]:")
-        wavelength_2 = raw_input("  > ")
+        wavelength_2 = raw_input(" > ")
     else:
         wavelength_2 = args.w2
 
     if args.file1 == None:
-        log.info(u"Enter the path to the FITS file that contains a spectrum" +
-                 u" with the first wavelength.")
+        log.info(u"Enter the path to the FITS file that contains a spectrum with" +
+                 u" the first wavelength.")
         filename_1 = raw_input(" > ")
     else:
         filename_1 = args.file1
 
     if args.file2 == None:
-        log.info(u"Enter the path to the FITS file that contains a spectrum" +
-                 u" with the second wavelength.")
+        log.info(u"Enter the path to the FITS file that contains a spectrum with" +
+                 u" the second wavelength.")
         filename_2 = raw_input(" > ")
     else:
         filename_2 = args.file2
+
+    # Read files and extract spectra ---
+    # if len(args.input_files) == 0:
+    #     log.error(u"You must set at leat one file. Leaving now.")
+    #     sys.exit()
 
     # Process first file ---
     f1 = None
@@ -139,21 +149,7 @@ def main():
     znew1 = np.linspace(z1[0], z1[-1], num=1000, endpoint=True)
     snew1 = splev(znew1, tck1, der=0)
 
-    # Find first peak for the first wavelength ---
-    log.info(u"\n    A new window has opened. Please, click near the peak" + \
-             u" that you want to identify (first peak for first wavelength).")
-    log.info(u"Click near a peak to add it.")
-    log.info(u"Press:")
-    log.info(u"<space_bar> or <ENTER> to accept the line selected.")
-    log.info(u'<Q> to leave the program.')
-
-    p = SingleLinePicker(filename_1, z1, s1, znew1, snew1)
-    z11 = p.xs
-    log.info(u"First peak found at {0:0.2f}".format(z11) +
-             u" for wavelength_1 = {0:0.2f} A".format(wavelength_1))
-
-    # Find second peak for the first wavelength ---
-    log.info(u"\n    A new window has opened. Please, click near the peak" + \
+    log.info(u"\nA new window has opened. Please, click near the peak" + \
              u" that you want to identify (more to the right).")
     log.info(u"Click near a peak to add it.")
     log.info(u"Press:")
@@ -161,9 +157,17 @@ def main():
     log.info(u'<Q> to leave the program.')
 
     p = SingleLinePicker(filename_1, z1, s1, znew1, snew1)
+    z11 = p.xs
+
+    log.info(u"A new window has opened. Please, click near the peak" + \
+             u" that you want to identify (more to the left).")
+    log.info(u"Click near a peak to add it.")
+    log.info(u"Press:")
+    log.info(u"  <space_bar> or <ENTER> to accept the line selected.")
+    log.info(u'  <Q> to leave the program.')
+
+    p = SingleLinePicker(filename_1, z1, s1, znew1, snew1)
     z12 = p.xs
-    log.info(u"Second peak found at {0:0.2f}".format(z12) +
-             u" for wavelength_1 = {0:0.2f} A".format(wavelength_1))
 
     # Process second file ---
     f2 = None
@@ -195,7 +199,7 @@ def main():
     znew2 = np.linspace(z2[0], z2[-1], num=1000, endpoint=True)
     snew2 = splev(znew2, tck2, der=0)
 
-    log.info(u"\n    A new window has opened. Please, click near the peak" + \
+    log.info(u"A new window has opened. Please, click near the peak" + \
              u" that you want to identify (more to the left).")
     log.info(u"Click near a peak to add it.")
     log.info(u"Press:")
@@ -204,18 +208,79 @@ def main():
 
     p = SingleLinePicker(filename_2, z2, s2, znew2, snew2)
     z21 = p.xs
-    log.info(u"Peak found at {0:0.2f}".format(z21) +
-             u" for wavelength_2 = {0:0.2f} A".format(wavelength_2))
+
+    # list_of_spectra = []
+    # pairs = {}
+    # for input_file in args.input_files:
+    #     log.info(u"Reading file {}".format(input_file))
+    #     try:
+    #         h = pyfits.getheader(input_file)
+    #     except IOError:
+    #         log.error(u"{} not found.".format(input_file))
+    #         continue
+    #
+    #     if h['NAXIS'] == 1:
+    #         s = pyfits.getdata(input_file)
+    #         try:
+    #             z = (np.arange(h['NAXIS1']) - h['CRPIX1'] + 1) * \
+    #                 h['CDELT1'] + h['CRVAL1']
+    #         except KeyError:
+    #             log.warning(u"Spectral calibration not found in " + \
+    #                         u"{}'s header.".format(input_file))
+    #             z = np.arange(h['NAXIS1'])
+    #     else:
+    #         log.warning()
+
+        # Smooth spectrum --
+        # s = np.convolve(s, [0.1, 0.15, 0.5, 0.15, 0.1], mode='same')
+
+        # Interpolate --
+        # tck = splrep(z, s, k=5)
+        # znew = np.linspace(z[0], z[-1], num=1000, endpoint=True)
+        # snew = splev(znew, tck, der=0)
+
+        # Plot --
+        # log.info(u"A new window has opened. Please, click near the peak(s)" + \
+        #          " that you want to identify.")
+        # log.info(u"Click near a peak to add it.")
+        # log.info(u"Press:")
+        # log.info(u"<space_bar> or <ENTER> to accept the lines selected.")
+        # log.info(u'<d> near a line to delete it.')
+        # log.info(u'<c> to clear all lines and start over.')
+        # log.info(u'<ESCAPE> to ignore the current file and jump to the next.')
+        # log.info(u'<Q> to leave the program.')
+
+        # plt.ion()
+        # p = PointPicker(input_file, z, s, znew, snew)
+
+        # for x in p.xs:
+        #     w = input(u"Type a wavelength for the line at " +
+        #               u"{:0.1f}:\n> ".format(x))
+        #     if w in pairs.keys():
+        #         pairs[w].append(x)
+        #     else:
+        #         pairs[w] = [x]
 
     # Calculating the wavelength calibration ---
+    # log.debug(pairs)
     curvature = 0
     while curvature not in [1, 2]:
-        curvature = raw_input(u"\n    Do the rings increase or decrease with Z?" +
+        curvature = raw_input(u"    Do the rings increase or decrease with Z?" +
                               u"\n    0 - Increase\n    1 - Decrease\n > ")
         try:
             curvature = float(curvature)
         except ValueError:
             pass
+
+    # If rings increases, orders are m, m+1, m+2, etc
+    # If rings decreases, orders are m, m-1, m-2, etc
+    # B = []
+    # for wavelength in pairs.keys():
+    #     if len(pairs[wavelength]) == 2:
+    #         dz = np.abs(pairs[wavelength][0] - pairs[wavelength][1])
+    #         B.append((-1) ** (curvature) * wavelength / dz)
+    #     else:
+    #         pass
 
     dz1 = np.abs(z11 - z12)
     B = ((-1) ** (curvature) * wavelength_1 / dz1)
@@ -241,89 +306,15 @@ def main():
     CRVAL1 = (A + B * f1.header['CRVAL1']) / m1
     CDELT1 = (B * f1.header['CDELT1']) / m1
 
-    log.info(u"\n    Calibration parameters found for" +
-             u" {0:0.1f}A".format(wavelength_1) +
-             u" at order {0:0d}".format(m1))
-    log.info(u"CRPIX1 = {}".format(CRPIX1))
-    log.info(u"CRVAL1 = {}".format(CRVAL1))
-    log.info(u"CDELT1 = {}".format(CDELT1))
+    log.info("Calibration parameters found for {0:0.1f}A".format(wavelength_1) +
+             " at order {0:0d}".format(m1))
+    log.info("CRPIX1 = {}".format(CRPIX1))
+    log.info("CRVAL1 = {}".format(CRVAL1))
+    log.info("CDELT1 = {}".format(CDELT1))
 
 
-    w = (np.arange(z1.size) - CRPIX1 + 1) * \
-            CDELT1 + CRVAL1
-    log.info(u"For this configuration the wavelength range is:")
-    log.info(u"{0:0.2f} A - {1:0.2f} A".format(w[0], w[-1]))
-    log.info(u"Type one of the following options and press enter for " +
-             u"different actions:" +
-             u"\n    '+' If you want to increase an order press" +
-             u"\n    '-' If you want to decrease an order press" +
-             # u"\n    'a' If you want to apply the current calibration to " +
-             # u"a FITS file." +
-             u"\n    'q' to leave" +
-             u"\n    A channel number, if you want to evaluate the " +
-             u"wavelength at that channel."
-             '')
 
-    a = None
-    while a not in ['q']:
-        a = raw_input(' > ')
-
-        if a == '+':
-            m1 += 1
-
-        elif a == '-':
-            m1 -= 1
-
-        elif a.isdigit():
-
-            w = apply_calibration_to_channel(float(a),
-                {'CRPIX1': f1.header['CRPIX1'], 'CRVAL1': f1.header['CRVAL1'],
-                 'CDELT1': f1.header['CDELT1']},
-                wcal)
-
-            log.info(u"Wavelength at {} = {:0.2f} A\n".format(a, w))
-            _ = raw_input(u"    Press <ENTER> to continue.")
-
-        CRPIX1 = f1.header['CRPIX1']
-        CRVAL1 = (A + B * f1.header['CRVAL1']) / m1
-        CDELT1 = (B * f1.header['CDELT1']) / m1
-        wcal = {'CRPIX1': CRPIX1, 'CRVAL1': CRVAL1,'CDELT1': CDELT1}
-
-        log.info(u"\n    Calibration parameters found for" +
-                 u" {0:0.1f}A".format(wavelength_1) +
-                 u" at order {0:0d}".format(m1))
-        log.info(u"CRPIX1 = {}".format(CRPIX1))
-        log.info(u"CRVAL1 = {}".format(CRVAL1))
-        log.info(u"CDELT1 = {}".format(CDELT1))
-
-
-        w = (np.arange(z1.size) - CRPIX1 + 1) * \
-                CDELT1 + CRVAL1
-        log.info(u"For this configuration the wavelength range is:")
-        log.info(u"{0:0.2f} A - {1:0.2f} A".format(w[0], w[-1]))
-        log.info(u"Reference wavelength is: {0:.2f}".format(wavelength_1))
-        log.info(u"Reference order is: {0:d}".format(m1))
-        log.info(u"Type one of the following options and press enter for " +
-                 u"different actions:" +
-                 u"\n    '+' If you want to increase an order press" +
-                 u"\n    '-' If you want to decrease an order press" +
-                 u"\n    'q' to leave" +
-                 u"\n    A channel number, if you want to evaluate the " +
-                 u"wavelength at that channel."
-                 '')
-
-    print('')
     return 0
-
-
-def apply_calibration_to_channel(z, old_cal, new_cal):
-
-    channel = (z - old_cal['CRVAL1']) / old_cal['CDELT1'] + old_cal['CRPIX1'] -1
-
-    wavelength = (channel - new_cal['CRPIX1'] + 1) * new_cal['CDELT1'] + \
-        new_cal['CRVAL1']
-
-    return wavelength
 
 
 class PointPicker(object):
