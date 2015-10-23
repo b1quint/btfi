@@ -2,40 +2,30 @@
 #-*- codign: utf8 -*-
 """
     2014.04.16 15:51 - Fixed keyword to access phase-map sampling.
-<<<<<<< HEAD
     2014.08.25 18:30 - Fixed ref_x/ref_y
                      - Show phmap, ref_x/ref_y, npoints
-=======
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
 """
 from __future__ import division, print_function
 
 def main():
-    
+
     import argparse
     import matplotlib.pyplot as plt
     import numpy
     import os
     import scipy.optimize as optimize
     from astropy.io import fits as pyfits
-    
+
     # Parsing arguments -------------------------------------------------------
     parser = argparse.ArgumentParser(description="Fits an existing phase-map.")
-    
-<<<<<<< HEAD
+
     parser.add_argument('filename',
                         type=str,
                         help="Input phase-map name.")
 
-=======
-    parser.add_argument('filename', 
-                        type=str, 
-                        help="Input phase-map name.")
-    
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
-    parser.add_argument('-i', '--interactions', default=5, type=int, 
+    parser.add_argument('-i', '--interactions', default=5, type=int,
                         help="Number of interactions in the process [5]")
-    
+
     parser.add_argument('-n', '--npoints', default=2500, type=int,
                         help="Number of points that will be used to fit" +
                         "the phase-map [50]")
@@ -48,14 +38,13 @@ def main():
 
     parser.add_argument('-s', '--show_plots', action='store_true',
                         help="Show plots (good for checking quality of the observed phase-map and the fitting.")
-    
+
     args = parser.parse_args()
     v = not args.quiet
     if v:
         print("\n Phase-Map Fitting for BTFI")
         print(" by Bruno Quint & Fabricio Ferrari")
         print(" version 0.0a - Jan 2014")
-<<<<<<< HEAD
         print("")
 
     check_dimensions(args.filename, dimensions=2)
@@ -63,17 +52,10 @@ def main():
     # Loading observed map ----------------------------------------------------
     if v:
         print(" Loading file: %s" % args.filename)
-=======
-        
-    # Loading observed map ----------------------------------------------------
-    if v: 
-        print("\n Loading file: %s" % args.filename)        
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
     phase_map = pyfits.open(args.filename)[0]
-    
+
     # Check if file was obtained with BTFI instrument
     header = phase_map.header
-<<<<<<< HEAD
     try:
         if header['INSTRUME'].upper() not in ['BTFI'] and v:
             if v: print(" [Warning]: %s file was not obtained with BTFI instrument."
@@ -87,97 +69,87 @@ def main():
     if mode == 'ibtf':
         if v:
             print(" File obtained through an iBTF scan.")
-=======
-    if header['INSTRUME'].upper() not in ['BTFI'] and v:
-        if v: print(" [Warning]: %s file was not obtained with BTFI instrument."
-                     % args.filename)
 
-    # Check whether data-cube was obtained from a FP scan or an iBTF scan
-    if header['INSTRMOD'].upper() in ['IBTF'] and v:
-        if v: print(" File obtained through an iBTF scan.")
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
-    
         width = phase_map.header['naxis1']
         height = phase_map.header['naxis2']
-        vmin = phase_map.data.mean() - 1.5 * phase_map.data.std() 
+        vmin = phase_map.data.mean() - 1.5 * phase_map.data.std()
         vmax = phase_map.data.mean() + 1.5 * phase_map.data.std()
-        plt_config = {'origin': 'lower', 
+        plt_config = {'origin': 'lower',
                       'cmap': get_colormap(),
-                      'interpolation': 'nearest', 
+                      'interpolation': 'nearest',
                       'vmin': vmin, 'vmax': vmax}
         if v:
             print(" Phase-map dimensions: [%d, %d]" % (width, height))
             print(" Done.")
-            
+
         plt.subplot(131)
-        
+
         plt.imshow(phase_map.data, **plt_config)
         plt.xticks([]), plt.yticks([])
         plt.xlabel('Observed Map')
-        
+
         # Starting fitting process ------------------------------------------------
         npoints = numpy.sqrt(args.npoints).astype(int)
         if v:
             print("\n Starting phase-map fitting.")
             print(" %d x %d points will be used in the process." %
                    (npoints, npoints))
-            
+
         x = (numpy.linspace(0.1, 0.9, npoints) * width).astype(int)
         y = (numpy.linspace(0.1, 0.9, npoints) * height).astype(int)
         x, y = numpy.meshgrid(x, y)
         x = numpy.ravel(x)
         y = numpy.ravel(y)
         z = numpy.ravel(phase_map.data[y,x])
-        
+
         fit_func = lambda p, x, y: p[0] + p[1] * x + p[2] * y
         err_func = lambda p, x, y, z: z - fit_func(p, x, y)
         params = [z.mean(), 0, 0]
-        
+
         # Fitting Plane -----------------------------------------------------------
         X = numpy.arange(phase_map.header['naxis1'])
         Y = numpy.arange(phase_map.header['naxis2'])
         X, Y = numpy.meshgrid(X, Y)
-        
+
         if v: print("")
         for i in range(args.interactions):
             if v:
                 print(" Fitting plane - Interaction %d" % (i + 1))
-            
+
             if i == 0: e = z
             condition = numpy.where(numpy.abs(e - e.mean()) <= e.std())
             xx = x[condition]
             yy = y[condition]
             zz = z[condition]
-        
+
             params, _ = optimize.leastsq(err_func, params, args=(xx, yy, zz))
-        
+
             Z = fit_func(params, X, Y)
             error = Z - phase_map.data
             e = numpy.ravel(error[y,x])
-            
+
         if v:
             p = params
-            print("  phi(x,y) = %.2f + %.2fx + %.2fy" % (p[0], p[1], p[2])) 
+            print("  phi(x,y) = %.2f + %.2fx + %.2fy" % (p[0], p[1], p[2]))
             print("  Error abs min: %f" % numpy.abs(e).min())
             print("  Error avg: %f" % e.mean())
             print("  Error std: %f" % e.std())
             print("  Error rms: %f" % numpy.sqrt(((e ** 2).mean())))
-        
+
         plt.scatter(xx, yy, c=zz, cmap=get_colormap())
         plt.xlim(0, width), plt.ylim(0, height)
-        
+
         plt.subplot(132)
         plt.imshow(error, **plt_config)
         plt.xticks([]), plt.yticks([])
         plt.xlabel("Residual")
-        
+
         plt.subplot(133)
         plt.imshow(Z, **plt_config)
         plt.xticks([]), plt.yticks([])
         plt.xlabel("Fitted map")
-            
+
         plt.show()
-<<<<<<< HEAD
 
         ref_x = header['PHMREFX']
         ref_y = header['PHMREFY']
@@ -188,27 +160,18 @@ def main():
         pyfits.writeto(fname + '--res_phmap.fits', Z - phase_map.data, header, clobber=True)
 
         print("")
-            
+
     # Fitting phase-map for a Fabry-Perot Map ---------------------------------
     elif mode == 'fp':
-=======
-        print("")
-            
-    # Fitting phase-map for a Fabry-Perot Map ---------------------------------
-    elif header['INSTRMOD'].upper() in ['FP', 'FABRY-PEROT']:
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
         npoints = numpy.sqrt(args.npoints).astype(int)
 
-        if v: 
+        if v:
             print(" File obtained through a Fabry-Perot scan.")
             print(" Starting phase-map fitting.")
             print(" %d x %d points will be used in the process." %
                    (npoints, npoints))
 
-<<<<<<< HEAD
         # Read data
-=======
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
         width = header['NAXIS1']
         height = header['NAXIS2']
         ref_x = header['PHMREFX']
@@ -217,7 +180,6 @@ def main():
         sampling = header['PHMSAMP']
         FSR = header['PHMFSR']
         phmap = phase_map.data
-<<<<<<< HEAD
 
         # From coordinates to pixels
         try:
@@ -249,16 +211,7 @@ def main():
             phmap_axes.grid()
             phmap_figure.colorbar(phmap_imshow)
 
-=======
-        phmap = phmap - phmap[ref_y, ref_x]
-        
-        x = (numpy.linspace(0.15, 0.85, npoints) * width).astype(int)
-        y = (numpy.linspace(0.15, 0.85, npoints) * height).astype(int)
-        X, Y = numpy.meshgrid(x, y)
-        R = numpy.sqrt((X - ref_x) ** 2 + (Y - ref_y) ** 2)
-        Z = phmap[Y, X]
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
-        
+
         x = numpy.ravel(X)
         y = numpy.ravel(Y)
         r = numpy.sqrt((x - ref_x) ** 2 + (y - ref_y) ** 2)
@@ -285,18 +238,9 @@ def main():
         if v:
             print("  Parabola is %s" % ('up' if sign > 0 else 'down'))
 
-<<<<<<< HEAD
         # Tell me the limits to fit the first parabola
         where = numpy.argmin(numpy.abs(r[dz_abs >= FSR / 2][0] - r))
 
-=======
-        # Tell me the limits to fits the first parabola
-        where = numpy.argmin(numpy.abs(r[dz_abs >= FSR / 2][0] - r))
-
-        # where = numpy.argmin(dz_sign) if sign > 0 else numpy.argmax(dz_sign)
-        # print(where)
-
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
         # Plot the gradient
         if args.show_plots:
             plt.figure(figsize=(16,7))
@@ -395,13 +339,12 @@ def main():
 
         if args.show_plots:
             plt.show()
-        
+
     else:
         if v: print(" [Warning]: File was not obtained from FP or iBTF.")
         if v: print(" [Warning]: Don't know what to do. Leaving now.\n")
         from sys import exit
         exit()
-<<<<<<< HEAD
 
 def check_dimensions(filename, dimensions=3, keyword='NAXIS'):
     """
@@ -448,14 +391,10 @@ def check_mode(filename, keyword='INSTRMOD'):
 
     return instrument_mode
 
-=======
-    
-#==============================================================================
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
 def get_colormap():
-    
+
     from matplotlib import colors
-    
+
     cdict = {'red': ((0.0, 1.0, 1.0),
                      (0.25, 1.0, 1.0),
                      (0.5, 0.0, 0.0),
@@ -471,10 +410,9 @@ def get_colormap():
                      (0.5, 0.0, 0.0),
                      (0.75, 1.0, 1.0),
                      (1.0, 1.0, 1.0))}
-    
+
     return colors.LinearSegmentedColormap('heaven_hell',cdict,256)
 
-<<<<<<< HEAD
 def error(my_string):
     s = bcolors.FAIL + '[ERROR] ' + bcolors.ENDC
     s = s + str(my_string)
@@ -504,7 +442,5 @@ class bcolors:
         self.FAIL = ''
         self.ENDC = ''
 
-=======
->>>>>>> e1944b7dc83edfe2170e5a3640b958923769efa4
 if __name__ == '__main__':
     main()

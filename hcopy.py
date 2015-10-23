@@ -8,8 +8,8 @@
     by Bruno C. Quint (bquint@astro.iag.usp.br)
     August 2013
 """
-
 from __future__ import division, print_function
+
 
 def hcopy(input_file, output_files, **kwargs):
     """
@@ -66,21 +66,25 @@ if __name__ == '__main__':
     import time
     
     t = time.time()    
-    parser = argparse.ArgumentParser(description="Copy the header or a header's field from one FITS file to other(s)");
-    parser.add_argument('--field', '-f', type=str, default=None, help="The particular field that will be copied.");
-    parser.add_argument('--quiet', '-q', action='store_true', help="Turn off verbose mode");
-    parser.add_argument('input', type=str, help="Input file containing the original header.");
-    parser.add_argument('output', type=str, nargs='+', help="Files that will receive the new header/field");
-    args = parser.parse_args();
+    parser = argparse.ArgumentParser(
+        description="Copy the header or a header's field from one FITS file " +
+                    "to other(s)")
+    parser.add_argument('--field', '-f', type=str, default=None,
+                        help="The particular field that will be copied.")
+    parser.add_argument('--quiet', '-q', action='store_true',
+                        help="Turn off verbose mode")
+    parser.add_argument('input', type=str,
+                        help="Input file containing the original header.")
+    parser.add_argument('output', type=str, nargs='+',
+                        help="Files that will receive the new header/field")
+    args = parser.parse_args()
     
     if not args.quiet: 
-        print("\n HCOPY - Copy information from one FITS file's header to another.");
-        print(" by Bruno C. Quint - bquint at astro.iag.usp.br");
-        print(" v0.1 2013.08");
+        print("\n HCOPY - " +
+              "Copy information from one FITS file's header to another.")
+        print(" by Bruno C. Quint - bquint at astro.iag.usp.br")
+        print(" v0.1 2013.08")
     
-    hcopy(args.input, args.output, field=args.field, quiet=args.quiet);
-    t = time.time() - t; 
-    if not args.quiet: print("\n All done. Total ellapsed time: %.2f\n" %t);
-    
-
-    
+    hcopy(args.input, args.output, field=args.field, quiet=args.quiet)
+    t = time.time() - t
+    if not args.quiet: print("\n All done. Total ellapsed time: %.2f\n" %t)
