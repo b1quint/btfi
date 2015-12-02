@@ -23,7 +23,7 @@ if __name__ == '__main__':
     parser.add_argument('-a','--address', type=str, default='139.229.18.226', help="FP server IP (String, Default: 139.229.18.226)")
     parser.add_argument('-p','--port', type=int, default=6342, help="FP server PORT (Integer, Default: 6342)")
     parser.add_argument('-b','--buffer', type=int, default=1024, help="Buffer size (Integer, Default: 1024)")
-    parser.add_argument('counter', type=int, help="Counter number (Integer)")
+    parser.add_argument('-c','--counter', type=int, default=0, help="Counter number (Integer, Default: 0)")
     parser.add_argument('start', type=int, help="Start Z value (Integer)")
     parser.add_argument('step', type=int, help="Step Z value (Integer)")
     parser.add_argument('stop', type=int, help="Stop Z value (Integer)")
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     ## Start scan ---
     logger.info("Start scan:")
     for z in range(Z_Start, Z_Stop, Z_Step):
-        logger.info(">>> {}, {}".format(counter, z))
+        logger.info("Counter = {}, Z = {} bcv".format(counter, z))
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((TCP_IP, TCP_PORT))
@@ -77,3 +77,4 @@ if __name__ == '__main__':
         #     pass
 
         time.sleep(2)
+        counter += 1
