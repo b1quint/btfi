@@ -123,18 +123,20 @@ def main():
             prefix = 'f' + prefix
 
         # Get astrometric calibration from the first FITS file extension.
-        header['CTYPE1'] = fits_file[1].header['CTYPE1']
-        header['CTYPE2'] = fits_file[1].header['CTYPE2']
-        header['CRVAL1'] = fits_file[1].header['CRVAL1']
-        header['CRVAL2'] = fits_file[1].header['CRVAL2']
-        header['CRPIX1'] = fits_file[1].header['CRPIX1']
-        header['CRPIX2'] = fits_file[1].header['CRPIX2']
-        header['CD1_1'] = fits_file[1].header['CD1_1']
-        header['CD2_1'] = fits_file[1].header['CD2_1']
-        header['CD1_2'] = fits_file[1].header['CD1_2']
-        header['CD2_2'] = fits_file[1].header['CD2_2']
-        header['CDELT1'] = fits_file[1].header['CDELT1']
-        header['CDELT2'] = fits_file[1].header['CDELT2']
+        if args.acal is not False:
+            header['CTYPE1'] = fits_file[1].header['CTYPE1']
+            header['CTYPE2'] = fits_file[1].header['CTYPE2']
+            header['CRVAL1'] = fits_file[1].header['CRVAL1']
+            header['CRVAL2'] = fits_file[1].header['CRVAL2']
+            header['CRPIX1'] = fits_file[1].header['CRPIX1']
+            header['CRPIX2'] = fits_file[1].header['CRPIX2']
+            header['CD1_1'] = fits_file[1].header['CD1_1']
+            header['CD2_1'] = fits_file[1].header['CD2_1']
+            header['CD1_2'] = fits_file[1].header['CD1_2']
+            header['CD2_2'] = fits_file[1].header['CD2_2']
+            header['CDELT1'] = fits_file[1].header['CDELT1']
+            header['CDELT2'] = fits_file[1].header['CDELT2']
+            prefix = 'a' + prefix
 
         # Removing bad column and line
         n_rows, n_columns = new_data.shape
