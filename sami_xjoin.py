@@ -130,12 +130,12 @@ def main():
             header['CRVAL2'] = fits_file[1].header['CRVAL2']
             header['CRPIX1'] = fits_file[1].header['CRPIX1']
             header['CRPIX2'] = fits_file[1].header['CRPIX2']
-            header['CD1_1'] = fits_file[1].header['CD1_1']
-            header['CD2_1'] = fits_file[1].header['CD2_1']
-            header['CD1_2'] = fits_file[1].header['CD1_2']
-            header['CD2_2'] = fits_file[1].header['CD2_2']
-            header['CDELT1'] = fits_file[1].header['CDELT1']
-            header['CDELT2'] = fits_file[1].header['CDELT2']
+            header['CD1_1'] = fits_file[1].header['CD1_1'] * bin_size
+            header['CD2_1'] = fits_file[1].header['CD2_1'] * bin_size
+            header['CD1_2'] = fits_file[1].header['CD1_2'] * bin_size
+            header['CD2_2'] = fits_file[1].header['CD2_2'] * bin_size
+            header['CDELT1'] = fits_file[1].header['CDELT1'] * bin_size
+            header['CDELT2'] = fits_file[1].header['CDELT2'] * bin_size
             prefix = 'a' + prefix
 
         # Removing bad column and line
