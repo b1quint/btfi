@@ -16,6 +16,10 @@ def main():
     parser = argparse.ArgumentParser(
         description="Join extensions existent in a single FITS file.")
 
+    parser.add_argument('-a', '--acal', action='store_true',
+                        help='Add astrometric calibration using the first' +
+                             ' extension header as reference.')
+
     parser.add_argument('-b', '--bias', type=str, default=None,
                         help="Consider BIAS file for subtraction.")
 
@@ -94,7 +98,7 @@ def main():
             new_data[dy[0]:dy[1], dx[0]:dx[1]] = trim
 
         # Getting the main header of the FITS file instead of the header
-        # an extention.
+        # an extension.
         header = fits_file[0].header
 
         # BIAS subtraction
@@ -117,6 +121,20 @@ def main():
             new_data = new_data / flat_file
             header['FLATFILE'] = args.flat
             prefix = 'f' + prefix
+
+        # Get astrometric calibration from the first FITS file extension.
+        header['CTYPE1'] = fits_file[1].header['CTYPE1']
+        header['CTYPE2'] = fits_file[1].header['CTYPE2']
+        header['CRVAL1'] = fits_file[1].header['CRVAL1']
+        header['CRVAL2'] = fits_file[1].header['CRVAL2']
+        header['CRPIX1'] = fits_file[1].header['CRPIX1']
+        header['CRPIX2'] = fits_file[1].header['CRPIX2']
+        header['CD1_1'] = fits_file[1].header['CD1_1']
+        header['CD2_1'] = fits_file[1].header['CD2_1']
+        header['CD1_2'] = fits_file[1].header['CD1_2']
+        header['CD2_2'] = fits_file[1].header['CD2_2']
+        header['CDELT1'] = fits_file[1].header['CDELT1']
+        header['CDELT2'] = fits_file[1].header['CDELT2']
 
         # Removing bad column and line
         n_rows, n_columns = new_data.shape
