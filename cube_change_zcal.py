@@ -21,22 +21,40 @@ class Main(object):
     def run(self, options):
 
         # Open file
+        print(options.filename)
         data = pyfits.getdata(options.filename)
         header = pyfits.getheader(options.filename)
 
         # Check information content
-        while not isinstance(options.reference, float):
-            options.reference = input(' > ')
+        if options.reference is None:
+            options.reference = ''
+            while not options.reference.isdigit():
+                options.reference = raw_input(" Please, enter reference channel:\n ")
+                
+        if options.value is None:
+            options.value = ''
+            while not options.value.isdigit():
+                options.value = raw_input(" Please, enter value channel:\n ")
+                
+        if options.delta is None:
+            options.delta = ''
+            while not options.delta.isdigit():
+                options.delta = raw_input(" Please, enter delta channel:\n ")
+                
+        if options.units is None:
+            options.units = '0.0'
+            while not options.units.isalpha():
+                options.units = raw_input(" Please, enter units channel:\n ")
 
         # Update header
-        header['CRPIX3'] = options.reference
-        header['CRVAL3'] = options.value
-        header['CDELT3'] = options.delta
-        header['C3_3'] = options.delta
+        header['CRPIX3'] = int(options.reference)
+        header['CRVAL3'] = float(options.value)
+        header['CDELT3'] = float(options.delta)
+        header['C3_3'] = float(options.delta)
         header['CUNIT3'] = options.units
 
         # Write file
-        options.filename = self.safe_save(options.filename)
+        options.filename = self.safe_save(options.filename, overwrite=True)
         pyfits.writeto(options.filename, data, header)
 
         return
@@ -94,7 +112,7 @@ if __name__ == '__main__':
         description="This script adds/changes the calibration of the third" +
                     " axis of a data-cube.")
 
-    parser.add_argument('filename', type=str, nargs='+', help="input filename.")
+    parser.add_argument('filename', type=str, help="input filename.")
 
     parser.add_argument('-r', '--reference', type=float, default=None,
                         help="Set reference channel.")
