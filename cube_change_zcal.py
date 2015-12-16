@@ -1,4 +1,4 @@
-#/usr/bin/python
+#!/usr/bin/python
 # -*- coding: utf8 -*-
 """
     Data-Cube - Change Z Calibration
