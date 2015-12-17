@@ -109,6 +109,10 @@ def main():
     else:
         filename_2 = args.file2
 
+    # Make sure that the wavelengths are float
+    wavelength_1 = float(wavelength_1)
+    wavelength_2 = float(wavelength_2)
+
     # Process first file ---
     f1 = None
     while f1 == None:
@@ -219,7 +223,7 @@ def main():
 
     dz1 = np.abs(z11 - z12)
     B = ((-1) ** (curvature) * wavelength_1 / dz1)
-    log.debug("B = {0:+0.5f} A / bnv".format(B))
+    log.info("B = {0:+0.5f} A / bnv".format(B))
 
     d = 200. # [um]
     d *= 1e4  # [um] to [A]
@@ -235,7 +239,7 @@ def main():
     m2 = m2[i]
 
     A = m1 * wavelength_1 - B * z11
-    log.debug("A = {0:+0.5f} A".format(A))
+    log.info("A = {0:+0.5f} A".format(A))
 
     CRPIX1 = f1.header['CRPIX1']
     CRVAL1 = (A + B * f1.header['CRVAL1']) / m1
