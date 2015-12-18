@@ -5,10 +5,13 @@ from __future__ import division, print_function
 
 import astropy.io.fits as pyfits
 import argparse
+import logging
 import numpy
 import os
 import sys
 
+from astropy import coordinates
+from astropy import units
 
 def main():
 
@@ -32,31 +35,59 @@ def main():
     parser.add_argument('-q', '--quiet', action='store_true',
                         help="Run quietly.")
 
+    parser.add_argument('--DEBUG', action='store_true',
+                        help="Run in DEBUG mode")
+
     parser.add_argument('files', metavar='files', type=str, nargs='+',
                         help="input filenames.")
 
     args = parser.parse_args()
     v = not args.quiet
+
+    # Create and setup log ---
+    fmt = MyFormatter()
+    hdlr = logging.StreamHandler(sys.stdout)
+    hdlr.setFormatter(fmt)
+    logging.root.addHandler(hdlr)
+    logging.root.setLevel(logging.CRITICAL)
+    log = logging.getLogger(__name__)
+
     if v:
-        print("\n SAMI - Join Extensions")
-        print(" by Bruno Quint (bquint@astro.iag.usp.br)")
-        print(" Mar 2015 - Version 0.4")
-        print("\n Starting program.")
+        logging.root.setLevel(logging.INFO)
+
+    if args.DEBUG:
+        logging.root.setLevel(logging.DEBUG)
+
+    log.info("\n SAMI - Join Extensions")
+    log.info(" by Bruno Quint (bquint@astro.iag.usp.br)")
+    log.info(" Mar 2015 - Version 0.4")
+    log.info("\n Starting program.")
 
     list_of_files = args.files
     list_of_files = sorted(list_of_files)
     # number_of_files = len(list_of_files)
 
-    if v:
-        print(" Processing data:")
+    log.info(" Processing data:")
     for filename in list_of_files:
 
-        if v:
-            sys.stdout.write("\n > %s " % filename)
-            sys.stdout.flush()
-
+        # Opening file
         prefix = "xj"
         fits_file = pyfits.open(filename)
+        log.info("\n > %s " % filename)
+
+        if args.DEBUG:
+            log.debug(fits_file[0].header.__str__)
+            _ = raw_input()
+            log.debug(fits_file[1].header.__str__)
+            _ = raw_input()
+            log.debug(fits_file[2].header.__str__)
+            _ = raw_input()
+            log.debug(fits_file[3].header.__str__)
+            _ = raw_input()
+            log.debug(fits_file[4].header.__str__)
+            _ = raw_input()
+
+        # Save detector dimmensions
         w, h = str2pixels(fits_file[1].header['DETSIZE'])
 
         # Correct for binning
@@ -81,8 +112,7 @@ def main():
             trim = data[ty[0]-1:ty[1], tx[0]-1:tx[1]]
             bias = data[by[0]-1:by[1], bx[0]-1:bx[1]]
 
-            # Collapse the bias
-            # collumns to a single collumn.
+            # Collapse the bias collumns to a single collumn.
             bias = numpy.median(bias, axis=1)
 
             # Fit and remove OVERSCAN
@@ -124,18 +154,34 @@ def main():
 
         # Get astrometric calibration from the first FITS file extension.
         if args.acal is not False:
+
+            coords = coordinates.SkyCoord(ra=fits_file[1].header['TELRA'],
+                                     dec=fits_file[1].header['TELDEC'],
+                                     unit=(units.hourangle, units.degree))
+
+            header['EPOCH'] = 2000
             header['CTYPE1'] = fits_file[1].header['CTYPE1']
             header['CTYPE2'] = fits_file[1].header['CTYPE2']
+
             header['CRVAL1'] = fits_file[1].header['CRVAL1']
             header['CRVAL2'] = fits_file[1].header['CRVAL2']
-            header['CRPIX1'] = fits_file[1].header['CRPIX1']
-            header['CRPIX2'] = fits_file[1].header['CRPIX2']
-            header['CD1_1'] = fits_file[1].header['CD1_1'] * bin_size[0]
-            header['CD2_1'] = fits_file[1].header['CD2_1'] * bin_size[0]
-            header['CD1_2'] = fits_file[1].header['CD1_2'] * bin_size[0]
-            header['CD2_2'] = fits_file[1].header['CD2_2'] * bin_size[0]
-            header['CDELT1'] = fits_file[1].header['CDELT1'] * bin_size[0]
-            header['CDELT2'] = fits_file[1].header['CDELT2'] * bin_size[0]
+            # header['CRVAL1'] = coords.ra.deg
+            # header['CRVAL2'] = coords.dec.deg
+
+            # header['CRPIX1'] = fits_file[1].header['CRPIX1']
+            # header['CRPIX2'] = fits_file[1].header['CRPIX2']
+            # header['CRPIX1'] = data.shape[0]
+            # header['CRPIX2'] = data.shape[1]
+            header['CRPIX1'] = 0
+            header['CRPIX2'] = 0
+
+            header['CD1_1'] = fits_file[1].header['CD1_1'] # * bin_size[0]
+            header['CD2_1'] = fits_file[1].header['CD2_1'] # * bin_size[0]
+            header['CD1_2'] = fits_file[1].header['CD1_2'] # * bin_size[0]
+            header['CD2_2'] = fits_file[1].header['CD2_2'] # * bin_size[0]
+            header['CDELT1'] = fits_file[1].header['CDELT1'] # * bin_size[0]
+            header['CDELT2'] = fits_file[1].header['CDELT2'] # * bin_size[0]
+
             prefix = 'a' + prefix
 
         # Removing bad column and line
@@ -149,7 +195,7 @@ def main():
         pyfits.writeto(os.path.join(path, prefix + filename), new_data, header,
                        clobber=True)
 
-    print("\n All done!")
+    log.info("\n All done!")
 
 
 def str2pixels(my_string):
@@ -166,6 +212,72 @@ def str2pixels(my_string):
     y = numpy.array(y, dtype=int)
 
     return x, y
+
+
+class TColors:
+
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+    def __init__(self):
+        pass
+
+    def disable(self):
+        self.HEADER = ''
+        self.OKBLUE = ''
+        self.OKGREEN = ''
+        self.WARNING = ''
+        self.FAIL = ''
+        self.ENDC = ''
+
+
+# Custom formatter
+class MyFormatter(logging.Formatter):
+    info_fmt = u"    %(msg)s"
+    wrn_fmt = TColors.WARNING + "[W]" + TColors.ENDC + \
+        u" %(msg)s"
+    dbg_fmt = u"{0}[D]{1} %(asctime)s %(filename)s %(funcName)s  %(lineno)d: %(msg)s".format(
+        TColors.OKBLUE, TColors.ENDC)
+    err_fmt = u"{0}[E]{1} %(asctime)s %(filename)s %(funcName)s  %(lineno)d: %(msg)s".format(
+        TColors.FAIL, TColors.ENDC)
+
+    def __init__(self, fmt=u"%(levelno)s: %(msg)s"):
+        logging.Formatter.__init__(self, fmt)
+
+    def format(self, record):
+
+        # Save the original format configured by the user
+        # when the logger formatter was instantiated
+        format_orig = self._fmt
+
+        # Replace the original format with one customized by logging level
+        if record.levelno == logging.DEBUG:
+            self._fmt = MyFormatter.dbg_fmt
+
+        elif record.levelno == logging.INFO:
+            self._fmt = MyFormatter.info_fmt
+
+        elif record.levelno == logging.ERROR:
+            self._fmt = MyFormatter.err_fmt
+
+        elif record.levelno == logging.WARNING:
+            self._fmt = MyFormatter.wrn_fmt
+
+        elif record.levelno == logging.CRITICAL:
+            self._fmt = MyFormatter.err_fmt
+
+        # Call the original formatter class to do the grunt work
+        result = logging.Formatter.format(self, record)
+
+        # Restore the original format configured by the user
+        self._fmt = format_orig
+
+        return result
+
 
 if __name__ == '__main__':
     main()
