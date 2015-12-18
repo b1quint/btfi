@@ -22,9 +22,9 @@ import sys
 
 def main():
     # Parse arguments ---------------------------------------------------------
-    parser = argparse.ArgumentParser(description="Extracts the phase-map" +
-                                                 "from a fits file containing a data" +
-                                                 "-cube.")
+    parser = argparse.ArgumentParser(
+        description="Extracts the phase-map from a fits file containing a data"
+                    + "-cube.")
 
     parser.add_argument('-c', '--correlation', action='store_true',
                         help="Use correlation cube? true/[FALSE]")
@@ -215,15 +215,6 @@ def safe_save(name, extension=None, overwrite=False, verbose=False):
                 print(" Writing data-cube to %s" % name)
 
     return name
-
-
-# ==============================================================================
-def get_refx_pixel():
-    """
-    Return the position of the reference X in pixels.
-    """
-
-    return
 
 
 class PhaseMap:
@@ -654,21 +645,19 @@ class PhaseMapFP(PhaseMap):
             ref_x = max(ref_x, 0)
             ref_x = min(ref_x, self.header['NAXIS1'])
 
-            ## First Version -- Get a slice from cube
+            # First Version -- Get a slice from cube
             temp_x = self.data[:fsr, ref_y, x]
             temp_y = self.data[:fsr, y, ref_x]
 
-            ## First Version -- Extract a parabola or a set of parabolas
+            # First Version -- Extract a parabola or a set of parabolas
             temp_x = numpy.argmax(temp_x, axis=0)
             temp_y = numpy.argmax(temp_y, axis=0)
 
-            ## First Version -- First derivative
+            # First Version -- First derivative
             xl = numpy.diff(temp_x)
             yl = numpy.diff(temp_y)
 
-            ## First Version -- Clean FSR from first derivative
-            # xl[numpy.abs(xl) > numpy.abs(numpy.median(xl[xl!=0]))] = numpy.median(xl[xl!=0])
-            # yl[numpy.abs(yl) > numpy.abs(numpy.median(yl[yl!=0]))] = numpy.median(yl[yl!=0])
+            # First Version -- Clean FSR from first derivative
             cond = numpy.abs(xl)
             xl[cond > numpy.median(cond[cond!=0])] = numpy.median(xl[xl!=0])
             cond = numpy.abs(yl)
@@ -708,13 +697,15 @@ class PhaseMapFP(PhaseMap):
             if (abs(old_ref_x - ref_x) <= 2) and (abs(old_ref_y - ref_y) <= 2):
 
                 try:
-                    # If the cube was binned this will be useful
-                    ref_x = (ref_x - self.header['CRPIX1'] + 1) \
-                            * self.header['CDELT1'] + self.header['CRVAL1']
 
                     # If the cube was binned this will be useful
-                    ref_y = (ref_y - self.header['CRPIX2']) \
-                            * self.header['CDELT2'] + self.header['CRVAL2']
+                    ref_x = (ref_x - self.header['CRPIX1'] + 1) * \
+                        self.header['CDELT1'] + self.header['CRVAL1']
+
+                    # If the cube was binned this will be useful
+                    ref_y = (ref_y - self.header['CRPIX2']) * \
+                        self.header['CDELT2'] + self.header['CRVAL2']
+
                 except KeyError:
                     pass
 
@@ -779,6 +770,7 @@ class PhaseMapFP(PhaseMap):
         if self.verbose:
             print(" Done in %.2f s" % (time.time() - now))
             print(" Using [%d, %d]." % (ref_x, ref_y))
+
         return ref_x, ref_y
 
     def get_finesse(self):
