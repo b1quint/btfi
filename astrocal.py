@@ -5,32 +5,58 @@
 """
 from __future__ import division, print_function
 
+import aplpy
 import argparse
 import astropy.io.fits as pyfits
 import logging
 import matplotlib.pyplot as plt
+import numpy as np
+
+from astropy import coordinates
+from astropy import units as u
+from matplotlib.patches import Rectangle
+from subprocess import call
 
 __author__ = 'Bruno Quint'
 
-
 class Main(object):
 
+    plate_scale = 0.0455 * u.arcsec
+    _2MASS = 'http://irsa.ipac.caltech.edu/cgi-bin/Gator/nph-query?'+ \
+               'outfmt=1&objstr={:5f}+{:5f}&spatial=Cone&radius=400&' + \
+               'catalog=fp_psc'
+
     def __init__(self):
-
-        plt.ion()
-
-        self.ax1 = plt.subplot(1,2,1)
-        self.ax2 = plt.subplot(1,2,2)
-
         return
 
     def run(self, args):
 
+        # Open File
         filename = args.filename
         data = pyfits.getdata(filename)
+        header = pyfits.getheader(filename)
 
-        self.ax1.imshow(data, origin='lower', interpolation='nearest',
-                        cmap='gray')
+        # Show file
+        self.ax1.imshow(data, interpolation='nearest', origin='lower', cmap='gray_r')
+        self.ax1.xaxis.set_ticklabels([])
+        self.ax1.yaxis.set_ticklabels([])
+
+        # Get object coordinated from header
+        ra, dec = header['OBSRA'], header['OBSDEC']
+        c = coordinates.SkyCoord(ra=ra, dec=dec, unit=(u.hourangle, u.deg))
+
+        # Download cathalog
+        # call(['wget',
+        #       self._2MASS.format(c.ra.deg, c.dec.deg),
+        #       '-O',
+        #       '_2MASS.tbl'])
+        ra, dec, j_m = np.loadtxt('_2MASS.tbl', skiprows=103, usecols=[0, 1, 8], unpack=True)
+
+        # Showing detector area
+        width = np.ones(ra.size) * 3. / 60. * u.deg
+        height = np.ones(ra.size) * 3. / 60. * u.deg
+        self.ax2.scatter(ra, dec, s=j_m, alpha=0.5, facecolor='None', edgecolor='red')
+        self.ax2.grid()
 
         plt.show()
 
@@ -106,17 +132,22 @@ class MyFormatter(logging.Formatter):
 
 if __name__ == '__main__':
 
-
-   # Parsing Arguments
+   # Parsing Arguments ---
     parser = argparse.ArgumentParser(
-        description="")
+        description="Interactive way of finding an astrometric calibration " +
+                    "solution for FITS images.")
 
-    parser.add_argument('filename', type=str, help="input filename.")
+    parser.add_argument('filename', type=str,
+                        help="input filename.")
+
+    parser.add_argument('-b', '--binning', type=int, default=1,
+                        help='Image binning.')
 
     parser.add_argument('-v','--verbose', type=int, default=0,
                         help="Verbose level: 0 - None, 1 - Info, 2 - Debug.")
 
     args = parser.parse_args()
 
+    # Main Thread ---
     main = Main()
     main.run(args)
