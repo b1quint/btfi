@@ -48,11 +48,23 @@ class Main():
         center = - np.inf * np.ones_like(mean)
 
         # Filling empty space
-        mean = np.where(mean > (mean_mean + mean_std), data.mean(axis=0), -100000)
-        std = np.where(mean > (mean_mean + mean_std), data.std(axis=0), -100000)
-        center = np.where(mean > (mean_mean + mean_std), ((data * W).sum(axis=0) / data.sum(axis=0)), -100000)
+        mean = data.mean(axis=0)
+        std = data.std(axis=0)
+        center = ((data * W).sum(axis=0) / data.sum(axis=0))
+        fwhm = np.sqrt((data * W * W).sum(axis=0) / data.sum(axis=0) - center ** 2) / (2 * np.sqrt(2 * np.log(2)))
 
-        # fwhm = np.sqrt((data * W * W).sum(axis=0) / data.sum(axis=0) - center ** 2) / (2 * np.sqrt(2 * np.log(2)))
+        # Getting SNR
+        signal = data[10:25].sum(axis=0)
+        noise = data[25:].sum(axis=0)
+        snr = signal / noise
+        
+        # Correcting images
+        target_snr = 10
+        mean = np.where(snr > target_snr, mean, -10000)
+        std = np.where(snr > target_snr, std, -10000)
+        center = np.where(snr > target_snr, center, -10000)
+        fwhm = np.where(snr > target_snr, fwhm, -10000)
+
 
         # p = [0, 0, 0]
         # velocity_map = np.zeros_like(data[0])
@@ -75,7 +87,7 @@ class Main():
         #
         # velocity_map = velocity_map - np.median(velocity_map)
 
-        center = (center - 6562.8) / 6562.8 * 299279.
+        # center = (center - 6562.8) / 6562.8 * 299279.
         # fwhm = (fwhm - 6562.8) / 6562.8 * 299279.
 
         del header['CRVAL3']
@@ -88,9 +100,10 @@ class Main():
 
         path, filename = os.path.split(filename)
         # pyfits.writeto(os.path.join(path, "vmap_" + filename), velocity_map, header)
-        pyfits.writeto(self.safesave(os.path.join(path, "center_" + filename)), center, header)
-        pyfits.writeto(self.safesave(os.path.join(path, "std_" + filename)), std, header)
-        pyfits.writeto(self.safesave(os.path.join(path, "mean_" + filename)), mean, header)
+        pyfits.writeto(self.safesave(os.path.join(path, "center_" + filename)), center, header, clobber=True)
+        pyfits.writeto(self.safesave(os.path.join(path, "std_" + filename)), std, header, clobber=True)
+        pyfits.writeto(self.safesave(os.path.join(path, "mean_" + filename)), mean, header, clobber=True)
+        pyfits.writeto(self.safesave(os.path.join(path, "fwhm_" + filename)), fwhm, header, clobber=True)
 
         return
 
