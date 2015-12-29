@@ -12,8 +12,9 @@ from astropy.visualization.mpl_normalize import ImageNormalize
 from scipy.optimize import leastsq
 from scipy import ndimage
 
+from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Rectangle
-from matplotlib.widgets import RectangleSelector
+from matplotlib import widgets
 
 __author__ = 'b1quint'
 __version__ = '20150406a'
@@ -29,11 +30,22 @@ log.setLevel(logging.DEBUG)
 
 class Main():
 
-    x1, x2, y1, y2 = 0, 0, 0, 0
-
     def __init__(self, filename):
+
         self.filename = filename
+        self.data = None
+        self.header = None
         self.rect = None
+
+        self.x1 = 0
+        self.x2 = 0
+        self.y1 = 0
+        self.y2 = 0
+
+        self.ax1 = None
+        self.ax2 = None
+        self.RS = None
+
         return
 
     def fit_continuum(self, data):
@@ -46,48 +58,56 @@ class Main():
         collapsed_data = np.mean(data, axis=0)
         norm = ImageNormalize(vmin=collapsed_data.min(), vmax=collapsed_data.max(), stretch=LogStretch())
 
-        fig = plt.figure()
-        ax1 = plt.subplot2grid((1, 1),(0, 0))
+        fig = plt.figure(figsize=(8, 6))
+        fig.suptitle('Draw a rectangle using the mouse. \nPress <ENTER> to ' +
+                      'accept it and carry on or "Q" to leave.')
+
+        gs = GridSpec(3, 3, height_ratios=[1,11,1], width_ratios=[1,11,1])
+        ax1 = plt.subplot(gs[4])
         im1 = ax1.imshow(collapsed_data, origin='lower', interpolation='nearest',
                          cmap='hot_r', norm=norm)
         ax1.grid()
-        ax1.set_title('Draw a rectangle using the mouse. \nPress <ENTER> to ' +
-                      'accept it and carry on or "Q" to leave.')
 
-        fig.canvas.mpl_connect('button_press_event', self.on_mouse_click)
-        fig.canvas.mpl_connect('button_release_event', self.on_mouse_release)
-        fig.canvas.mpl_connect('key_press_event', self.on_key_press)
+        self.ax2 = plt.subplot(gs[7])
+        self.ax2.xaxis.set_ticklabels([])
+        self.ax2.yaxis.set_ticklabels([])
 
-        RS = RectangleSelector(ax1, self.line_select_callback, drawtype='box',
-                               useblit=True, button=[1], minspanx=5, minspany=5,
-                               spancoords='pixels',
-                               rectprops = dict(facecolor='green',
-                                                edgecolor = 'green',
-                                                alpha=0.5, fill=True))
-        RS.set_active(True)
+        # fig.canvas.mpl_connect('button_press_event', self.on_mouse_click)
+        # fig.canvas.mpl_connect('button_release_event', lambda e: self.on_mouse_release(e, data))
+        # fig.canvas.mpl_connect('key_press_event', self.on_key_press)
 
-        fig.tight_layout()
+        RS = MyRectangleSelector(ax1, self.line_select_callback, drawtype='box',
+                                 useblit=True, button=[1], minspanx=5,
+                                 minspany=5, spancoords='pixels',
+                                 rectprops = dict(facecolor='green',
+                                                  edgecolor = 'green',
+                                                  alpha=0.5, fill=True))
+        self.RS.set_active(True)
+        self.RS.
+
+
+        gs.tight_layout(fig)
         plt.show()
-        
+
         x1 = min(self.x1, self.x2)
         x2 = max(self.x1, self.x2)
         y1 = min(self.y1, self.y2)
         y2 = max(self.y1, self.y2)
 
-        data = data[:, y2:y1, x2:x1]
+        data = data[:, y1:y2, x1:x2]
         data = data.sum(axis=1)
         data = data.sum(axis=1)
         x = np.arange(data.size)
         p = np.polyfit(x, data, 3)
         y = np.polyval(p, x)
 
-        plt.plot(x, data, 'ko')
-        plt.plot(x, y, 'r-')
-        plt.grid()
-        plt.show()
+        # plt.plot(x, data, 'ko')
+        # plt.plot(x, y, 'r-')
+        # plt.grid()
+        # plt.show()
 
         return y
-        
+
 
     def fit_gaussian(self, x, y):
         """
@@ -199,7 +219,7 @@ class Main():
 
         return
 
-    def on_mouse_release(self, event):
+    def on_mouse_release(self, event, data):
 
         x = int(event.xdata)
         y = int(event.ydata)
@@ -216,7 +236,27 @@ class Main():
                               edgecolor='blue',
                               alpha=0.3)
 
-        curr_ax = plt.gca()
+        log.debug(event.inaxes)
+
+        x1 = min(self.x1, self.x2)
+        x2 = max(self.x1, self.x2)
+        y1 = min(self.y1, self.y2)
+        y2 = max(self.y1, self.y2)
+
+        data = data[:, y1:y2, x1:x2]
+        data = data.sum(axis=1)
+        data = data.sum(axis=1)
+        x = np.arange(data.size)
+        p = np.polyfit(x, data, 6)
+        y = np.polyval(p, x)
+
+        self.ax2.cla()
+        self.ax2.plot(x, data, 'ko')
+        self.ax2.plot(x, y, 'r-')
+        self.ax2.set_xlim(x.min(), x.max())
+        self.ax2.locator_params(axis = 'y', nbins = 3)
+
+        curr_ax = event.inaxes
         curr_fig = plt.gcf()
         curr_ax.add_patch(self.rect)
         curr_fig.canvas.draw()
@@ -450,17 +490,22 @@ class Main():
         return name
 
 
-class AreaSelector:
+class MyRectangleSelector(widgets.RectangleSelector):
+    """
+    Custom rectangle selector used to make keep the selected area
+    persistent on the screen. Based on:
 
-    def __init__(self, axis):
-        RS = RectangleSelector(axis, self.line_select_callback, drawtype='box', useblit=True, button=[1], minspanx=5, minspany=5, spancoords='pixels')
-
-
+    http://stackoverflow.com/a/34517699/2333908
+    """
+    def release(self, event):
+        super(MyRectangleSelector, self).release(event)
+        self.to_draw.set_visible(True)
+        self.canvas.draw()
 
 if __name__ == '__main__':
 
-    # filename = '/home/b1quint/Data/NGC2440.fits' # lemonjuice
-    filename = '/home/bquint/Data/NGC2440.fits' # soarbr3
+    filename = '/home/b1quint/Data/NGC2440.fits' # lemonjuice
+    # filename = '/home/bquint/Data/NGC2440.fits' # soarbr3
     main = Main(filename)
     main.run(show=False)
 
