@@ -7,8 +7,13 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
+from astropy.visualization import LogStretch
+from astropy.visualization.mpl_normalize import ImageNormalize
 from scipy.optimize import leastsq
 from scipy import ndimage
+
+from matplotlib.patches import Rectangle
+from matplotlib.widgets import RectangleSelector
 
 __author__ = 'b1quint'
 __version__ = '20150406a'
@@ -24,23 +29,65 @@ log.setLevel(logging.DEBUG)
 
 class Main():
 
+    x1, x2, y1, y2 = 0, 0, 0, 0
+
     def __init__(self, filename):
         self.filename = filename
+        self.rect = None
         return
 
-    def fit_continuum(self, data, mask):
+    def fit_continuum(self, data):
         """
         Use the data and the mask to estimate and fit the continuum levels.
 
-        :param data: data-cube in 3D array.
-        :param mask: the mask containing the regions where the continuum is dominant.
+        :param collapsed_data: data-cube in 3D array.
         :return: array containing the fitted polynomium.
         """
-        data = data[:,mask]
+        collapsed_data = np.mean(data, axis=0)
+        norm = ImageNormalize(vmin=collapsed_data.min(), vmax=collapsed_data.max(), stretch=LogStretch())
 
-        plt.plot(data)
+        fig = plt.figure()
+        ax1 = plt.subplot2grid((1, 1),(0, 0))
+        im1 = ax1.imshow(collapsed_data, origin='lower', interpolation='nearest',
+                         cmap='hot_r', norm=norm)
+        ax1.grid()
+        ax1.set_title('Draw a rectangle using the mouse. \nPress <ENTER> to ' +
+                      'accept it and carry on or "Q" to leave.')
+
+        fig.canvas.mpl_connect('button_press_event', self.on_mouse_click)
+        fig.canvas.mpl_connect('button_release_event', self.on_mouse_release)
+        fig.canvas.mpl_connect('key_press_event', self.on_key_press)
+
+        RS = RectangleSelector(ax1, self.line_select_callback, drawtype='box',
+                               useblit=True, button=[1], minspanx=5, minspany=5,
+                               spancoords='pixels',
+                               rectprops = dict(facecolor='green',
+                                                edgecolor = 'green',
+                                                alpha=0.5, fill=True))
+        RS.set_active(True)
+
+        fig.tight_layout()
+        plt.show()
+        
+        x1 = min(self.x1, self.x2)
+        x2 = max(self.x1, self.x2)
+        y1 = min(self.y1, self.y2)
+        y2 = max(self.y1, self.y2)
+
+        data = data[:, y2:y1, x2:x1]
+        data = data.sum(axis=1)
+        data = data.sum(axis=1)
+        x = np.arange(data.size)
+        p = np.polyfit(x, data, 3)
+        y = np.polyval(p, x)
+
+        plt.plot(x, data, 'ko')
+        plt.plot(x, y, 'r-')
+        plt.grid()
         plt.show()
 
+        return y
+        
 
     def fit_gaussian(self, x, y):
         """
@@ -96,6 +143,14 @@ class Main():
         g = a * np.exp(-(b - x) **2 / (2*c**2)) + d
         return g
 
+    def line_select_callback(self, eclick, erelease):
+        'eclick and erelease are the press and release events'
+        self.x1 = int(eclick.xdata)
+        self.y1 = int(eclick.ydata)
+        self.x2 = int(erelease.xdata)
+        self.y2 = int(erelease.ydata)
+        return
+
     @staticmethod
     def lorentzian(p, x):
         """
@@ -111,6 +166,63 @@ class Main():
         d = p[3]
         l = a * (1 / (1 + ((x - b) / c)**2)) + d
         return l
+
+    def on_key_press(self, event):
+
+        log.debug('Key pressed: ' + event.key)
+        if event.key.lower() == 'enter':
+            curr_fig = plt.gcf()
+            plt.close(curr_fig)
+        if event.key.lower() == 'q':
+            from sys import exit
+            exit()
+
+        return
+
+    def on_mouse_click(self, event):
+
+        try:
+            self.rect.remove()
+        except AttributeError:
+            log.debug('No existing rectangle. Creating one now.')
+
+        curr_fig = plt.gcf()
+        curr_fig.canvas.draw()
+
+        x = int(event.xdata)
+        y = int(event.ydata)
+
+        self.x1 = x
+        self.y1 = y
+
+        log.debug('Mouse press event at [%d, %d]' % (x, y))
+
+        return
+
+    def on_mouse_release(self, event):
+
+        x = int(event.xdata)
+        y = int(event.ydata)
+
+        self.x2 = x
+        self.y2 = y
+
+        log.debug('Mouse release event at [%d, %d]' % (x, y))
+
+        self.rect = Rectangle((self.x1, self.y1),
+                              self.x2 - self.x1,
+                              self.y2 - self.y1,
+                              facecolor='blue',
+                              edgecolor='blue',
+                              alpha=0.3)
+
+        curr_ax = plt.gca()
+        curr_fig = plt.gcf()
+        curr_ax.add_patch(self.rect)
+        curr_fig.canvas.draw()
+
+        return
+
 
     def run(self, show=False):
 
@@ -131,14 +243,14 @@ class Main():
         s = s.sum(axis=1)
 
         gauss_p = self.fit_gaussian(z, s)
-        log.debug("Gaussian parameters")
+        log.debug("Gaussian parameters ---")
         log.debug("p[0] = %.2f" % gauss_p[0])
         log.debug("p[1] = %.2f" % gauss_p[1])
         log.debug("p[2] = %.2f" % gauss_p[2])
         log.debug("p[3] = %.2f" % gauss_p[3])
 
         lor_p = self.fit_lorentzian(z, s)
-        log.debug("Lorentzian parameters")
+        log.debug("Lorentzian parameters ---")
         log.debug("p[0] = %.2f" % lor_p[0])
         log.debug("p[1] = %.2f" % lor_p[1])
         log.debug("p[2] = %.2f" % lor_p[2])
@@ -201,7 +313,7 @@ class Main():
             plt.show()
 
         # Adjust continuum
-        continuum = self.fit_continuum(d, snr_mask)
+        continuum = self.fit_continuum(d)
 
         # flux = np.zeros_like(snr)
         # velocity = np.zeros_like(snr)
@@ -291,13 +403,6 @@ class Main():
         #
         return
 
-
-
-
-
-    def error_func(self, p, x, y):
-        return y - self.lorentzian(p, x)
-
     def safesave(self, name, overwrite=None, verbose=False):
         """
         This is a generic method used to check if a file called 'name' already
@@ -345,11 +450,19 @@ class Main():
         return name
 
 
+class AreaSelector:
+
+    def __init__(self, axis):
+        RS = RectangleSelector(axis, self.line_select_callback, drawtype='box', useblit=True, button=[1], minspanx=5, minspany=5, spancoords='pixels')
+
+
+
 if __name__ == '__main__':
 
-    filename = '/home/b1quint/Data/NGC2440.fits'
+    # filename = '/home/b1quint/Data/NGC2440.fits' # lemonjuice
+    filename = '/home/bquint/Data/NGC2440.fits' # soarbr3
     main = Main(filename)
-    main.run(show=True)
+    main.run(show=False)
 
 
 
