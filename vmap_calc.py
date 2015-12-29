@@ -68,7 +68,7 @@ class Main():
 
         fig.tight_layout()
         plt.show()
-        
+
         x1 = min(self.x1, self.x2)
         x2 = max(self.x1, self.x2)
         y1 = min(self.y1, self.y2)
@@ -87,7 +87,7 @@ class Main():
         plt.show()
 
         return y
-        
+
 
     def fit_gaussian(self, x, y):
         """
