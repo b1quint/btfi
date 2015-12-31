@@ -62,7 +62,7 @@ class Main():
         fig.suptitle('Draw a rectangle using the mouse. \nPress <ENTER> to ' +
                       'accept it and carry on or "Q" to leave.')
 
-        gs = GridSpec(3, 3, height_ratios=[1,11,1], width_ratios=[1,11,1])
+        gs = GridSpec(3, 3, height_ratios=[1,11,3], width_ratios=[1,11,1])
         ax1 = plt.subplot(gs[4])
         im1 = ax1.imshow(collapsed_data, origin='lower', interpolation='nearest',
                          cmap='hot_r', norm=norm)
@@ -72,19 +72,17 @@ class Main():
         self.ax2.xaxis.set_ticklabels([])
         self.ax2.yaxis.set_ticklabels([])
 
-        # fig.canvas.mpl_connect('button_press_event', self.on_mouse_click)
-        # fig.canvas.mpl_connect('button_release_event', lambda e: self.on_mouse_release(e, data))
-        # fig.canvas.mpl_connect('key_press_event', self.on_key_press)
-
-        RS = MyRectangleSelector(ax1, self.line_select_callback, drawtype='box',
+        self.RS = MyRectangleSelector(ax1, self.line_select_callback, drawtype='box',
                                  useblit=True, button=[1], minspanx=5,
                                  minspany=5, spancoords='pixels',
                                  rectprops = dict(facecolor='green',
                                                   edgecolor = 'green',
                                                   alpha=0.5, fill=True))
-        self.RS.set_active(True)
-        self.RS.
 
+        self.RS.set_active(True)
+        self.RS.connect_event('button_press_event', self.on_mouse_click)
+        self.RS.connect_event('button_release_event', lambda e: self.on_mouse_release(e, data))
+        self.RS.connect_event('key_press_event', self.on_key_press)
 
         gs.tight_layout(fig)
         plt.show()
@@ -95,16 +93,17 @@ class Main():
         y2 = max(self.y1, self.y2)
 
         data = data[:, y1:y2, x1:x2]
-        data = data.sum(axis=1)
-        data = data.sum(axis=1)
+        data = np.median(data, axis=1)
+        data = np.median(data, axis=1)
         x = np.arange(data.size)
         p = np.polyfit(x, data, 3)
         y = np.polyval(p, x)
 
-        # plt.plot(x, data, 'ko')
-        # plt.plot(x, y, 'r-')
-        # plt.grid()
-        # plt.show()
+        plt.plot(x, data, 'ko')
+        plt.plot(x , y, 'r-')
+        plt.title('Fitted continuum around the given area.')
+        plt.grid()
+        plt.show()
 
         return y
 
@@ -244,17 +243,17 @@ class Main():
         y2 = max(self.y1, self.y2)
 
         data = data[:, y1:y2, x1:x2]
-        data = data.sum(axis=1)
-        data = data.sum(axis=1)
+        data = data.mean(axis=1)
+        data = data.mean(axis=1)
         x = np.arange(data.size)
-        p = np.polyfit(x, data, 6)
+        p = np.polyfit(x, data, 3)
         y = np.polyval(p, x)
 
         self.ax2.cla()
         self.ax2.plot(x, data, 'ko')
         self.ax2.plot(x, y, 'r-')
         self.ax2.set_xlim(x.min(), x.max())
-        self.ax2.locator_params(axis = 'y', nbins = 3)
+        self.ax2.locator_params(axis = 'y', nbins = 2)
 
         curr_ax = event.inaxes
         curr_fig = plt.gcf()
