@@ -1,11 +1,15 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
 from __future__ import print_function, division
+
+from scipy.signal.cont2discrete import cont2discrete
+
 import astropy.io.fits as pyfits
 import itertools
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 from astropy.visualization import LogStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
@@ -118,11 +122,14 @@ class Main():
         p = [0, 0, 0, 0]
         p[0] = y.max()
         p[1] = x[y.argmax()]
-        p[2] = np.sqrt((y * x * x).sum() / y.sum(axis=0) - p[1] ** 2)
+        p[2] = 1
         p[3] = np.median(y)
 
         err_function = lambda p, x, y: y - self.gaussian(p, x)
         p, s = leastsq(err_function, p, args=(x, y))
+
+        if not (s < 5):
+            p = [0, 0, 0, 0]
 
         return p
 
@@ -262,10 +269,10 @@ class Main():
 
         return
 
-
     def run(self, show=False):
 
         # Load data
+        filename = self.filename
         d = pyfits.getdata(filename)
         h = pyfits.getheader(filename)
 
@@ -354,95 +361,50 @@ class Main():
         # Adjust continuum
         continuum = self.fit_continuum(d)
 
-        # flux = np.zeros_like(snr)
-        # velocity = np.zeros_like(snr)
-        # width = np.zeros_like(snr)
+        # Subtract continuum
+        continuum = np.reshape(continuum, (continuum.size, 1, 1))
+        continuum = np.repeat(continuum, d.shape[1], axis=1)
+        continuum = np.repeat(continuum, d.shape[2], axis=2)
+        d -= continuum
+        del continuum
 
-        # for (j, i) in itertools.product(range(d.shape[1]), range(d.shape[2])):
-        #
-        #     if not snr_mask[j, i]:
+        # Adjust each pixel to a gaussian
+        flux = np.zeros_like(snr)
+        velocity = np.zeros_like(snr)
+        width = np.zeros_like(snr)
+        continuum = np.zeros_like(snr)
 
+        for (j, i) in itertools.product(range(d.shape[1]), range(d.shape[2])):
 
+            p = self.fit_gaussian(w, d[:,j,i])
+            flux[j, i] = p[0]
+            velocity[j, i] = p[1]
+            width[j, i] = p[2]
+            continuum[j, i] = p[3]
 
+        flux = flux / (2 * np.pi * velocity)
+        velocity = (velocity - 6562.8) / 6562.8 * 300000
+        width = width * 2 * np.sqrt(2 * np.log(2))
 
-
-
-
-        # W = np.reshape(w, (w.size,1,1))
-        # W = np.repeat(W, data.shape[1], axis=1)
-        # W = np.repeat(W, data.shape[2], axis=2)
-        #
-        # mean = data.mean(axis=0)
-        # std = data.std(axis=0)
-        # mean_mean = np.mean(mean)
-        # mean_std = np.mean(std)
-        #
-        # # Creating empty space
-        # mean = - np.inf * np.ones_like(mean)
-        # std = - np.inf * np.ones_like(mean)
-        # center = - np.inf * np.ones_like(mean)
-        #
-        # # Filling empty space
-        # mean = data.mean(axis=0)
-        # std = data.std(axis=0)
-        # center = ((data * W).sum(axis=0) / data.sum(axis=0))
-        # fwhm = np.sqrt((data * W * W).sum(axis=0) / data.sum(axis=0) - center ** 2) / (2 * np.sqrt(2 * np.log(2)))
-        #
-        # # Getting SNR
-        # signal = data[10:25].sum(axis=0)
-        # noise = data[25:].sum(axis=0)
-        # snr = signal / noise
-        #
-        # # Correcting images
-        # target_snr = 10
-        # mean = np.where(snr > target_snr, mean, -10000)
-        # std = np.where(snr > target_snr, std, -10000)
-        # center = np.where(snr > target_snr, center, -10000)
-        # fwhm = np.where(snr > target_snr, fwhm, -10000)
+        del h['CRVAL3']
+        del h['CDELT3']
+        del h['CRPIX3']
+        del h['CTYPE3']
+        del h['CUNIT3']
+        del h['C3_3']
+        del h['CD3_3']
+        
+        path, filename = os.path.split(filename)
+        pyfits.writeto(os.path.join(path, "flux_" + filename), flux, h)
+        pyfits.writeto(os.path.join(path, "velocity_" + filename), velocity, h)
+        pyfits.writeto(os.path.join(path, "width_" + filename), width, h)
+        pyfits.writeto(os.path.join(path, "cont_" + filename), continuum, h)
 
 
-        # p = [0, 0, 0]
-        # velocity_map = np.zeros_like(data[0])
-        # for i in range(data.shape[2]):
-        #     for j in range(data.shape[1]):
-        #         print(i, j)
-        #
-        #         p[0] = data[:,j,i].max()
-        #         p[1] = w[np.argmax(data[:,j,i])]
-        #         p[2] = fwhm[j,i]
-        #
-        #         solp, ier = leastsq(self.error_func, p, args=(w,data[:,j,i]))
-        #
-        #         if ier < 5:
-        #             temp = p[1]
-        #             temp = (temp - 6562.8) / 6562.8 * 299279.
-        #             velocity_map[j,i] = temp
-        #         else:
-        #             velocity_map[j,i] = -np.inf
-        #
-        # velocity_map = velocity_map - np.median(velocity_map)
-
-        # center = (center - 6562.8) / 6562.8 * 299279.
-        # fwhm = (fwhm - 6562.8) / 6562.8 * 299279.
-
-        # del header['CRVAL3']
-        # del header['CDELT3']
-        # del header['CRPIX3']
-        # del header['CTYPE3']
-        # del header['CUNIT3']
-        # del header['C3_3']
-        # del header['CD3_3']
-        #
-        # path, filename = os.path.split(filename)
-        # # pyfits.writeto(os.path.join(path, "vmap_" + filename), velocity_map, header)
-        # pyfits.writeto(self.safesave(os.path.join(path, "center_" + filename)), center, header, clobber=True)
-        # pyfits.writeto(self.safesave(os.path.join(path, "std_" + filename)), std, header, clobber=True)
-        # pyfits.writeto(self.safesave(os.path.join(path, "mean_" + filename)), mean, header, clobber=True)
-        # pyfits.writeto(self.safesave(os.path.join(path, "fwhm_" + filename)), fwhm, header, clobber=True)
-        #
         return
 
-    def safesave(self, name, overwrite=None, verbose=False):
+    @staticmethod
+    def safesave(name, overwrite=None, verbose=False):
         """
         This is a generic method used to check if a file called 'name' already
         exists. If so, it starts some interaction with the user.
