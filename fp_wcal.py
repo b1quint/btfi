@@ -75,9 +75,9 @@ def main():
              u"    by Bruno C. Quint - bquint at ctio dot noao dot edu\n" + \
              u"    Version 0.0a\n")
 
-    log.info(u"For the wavelength calibration you will need two wavelengths.\n"+
-             u"    One wavelength has to have two identified peaks.\n" +
-             u"    The other will have to have one identified peak.\n" +
+    log.info(u"For the wavelength calibration you will need two lines (wavelengths).\n"+
+             u"    One line (wavelength) has to have been observed in two different orders.\n" +
+             u"    The other line (wavelength) has to have been observed in only one order.\n" +
              u"    Press <ENTER> when you are ready.\n")
     dummy = None
     while dummy is None:
