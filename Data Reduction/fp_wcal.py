@@ -76,7 +76,7 @@ def main():
              u"    Version 0.0a\n")
 
     log.info(u"For the wavelength calibration you will need two lines (wavelengths).\n"+
-             u"    One line (wavelength) has to have been observed in two different orders.\n" +
+             u"    One line (wavelength) has to have been observed in two different orders (More than one Free-Spectral Range).\n" +
              u"    The other line (wavelength) has to have been observed in only one order.\n" +
              u"    Press <ENTER> when you are ready.\n")
     dummy = None
@@ -85,12 +85,14 @@ def main():
 
     if args.w1 == None:
         log.info(u"Now, please enter the first known wavelength in [A]:")
+        log.info(u"(If you use Neon Lamp and BTFI 6600/19 Filter, this line is 6598.9629A)")
         wavelength_1 = raw_input("  > ")
     else:
         wavelength_1 = args.w1
 
     if args.w2 == None:
         log.info(u"Now, enter the second known wavelength in [A]:")
+        log.info(u"(If you use Neon Lamp and BTFI 6745/38.5 Filter, this line is 6717.0430A)")
         wavelength_2 = raw_input("  > ")
     else:
         wavelength_2 = args.w2
@@ -144,7 +146,7 @@ def main():
     snew1 = splev(znew1, tck1, der=0)
 
     # Find first peak for the first wavelength ---
-    log.info(u"\n    A new window has opened. Please, click near the peak" + \
+    log.info(u"\n    A new window has opened. Please, click with the mouse near the peak" + \
              u" that you want to identify (first peak for first wavelength).")
     log.info(u"Click near a peak to add it.")
     log.info(u"Press:")
@@ -215,7 +217,7 @@ def main():
     curvature = 0
     while curvature not in [1, 2]:
         curvature = raw_input(u"\n    Do the rings increase or decrease with Z?" +
-                              u"\n    0 - Increase\n    1 - Decrease\n > ")
+                              u"\n    0 - Increase\n    1 - Decrease (BTFI or SAM/FP)\n > ")
         try:
             curvature = float(curvature)
         except ValueError:
@@ -316,6 +318,10 @@ def main():
                  u"wavelength at that channel."
                  '')
 
+    # TODO: Modify this program to answer the following question
+    # What is the expected wavelength of the line you are observing for your
+    # science? (e.g. if you are observing the Cartwheel galaxy in Halpha,
+    # which has redshift of 0.0301, this number would be 1.0301 x 6563 = 6761)
     print('')
     return 0
 

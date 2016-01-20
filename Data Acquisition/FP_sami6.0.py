@@ -1,4 +1,4 @@
-#!/Users/pamram/anaconda/bin/python
+#!/usr/bin/python3
 #import math
 #math.pi
 import scipy

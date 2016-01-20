@@ -44,7 +44,7 @@ if __name__ == '__main__':
         s = socket.create_connection((TCP_IP, TCP_PORT), timeout=10)
         logger.info("Connection stablished successfully!")
         s.close()
-    except socket.error, v:
+    except socket.error as v:
         logger.error("Connection failed - error code: {0}".format(v))
         sys.exit(1)
 
