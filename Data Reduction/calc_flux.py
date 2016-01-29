@@ -438,14 +438,14 @@ class Main():
         d = d.sum(axis=2)
         d = d.sum(axis=1)
 
-        gauss_p, _ = self.fit_gaussian(z, d)
+        gauss_p, _ = self.fit_gaussian(w, d)
         log.debug("Gaussian parameters ---")
         log.debug("p[0] = %.2f" % gauss_p[0])
         log.debug("p[1] = %.2f" % gauss_p[1])
         log.debug("p[2] = %.2f" % gauss_p[2])
         log.debug("p[3] = %.2f" % gauss_p[3])
 
-        lor_p = self.fit_lorentzian(z, d)
+        lor_p = self.fit_lorentzian(w, d)
         log.debug("Lorentzian parameters ---")
         log.debug("p[0] = %.2f" % lor_p[0])
         log.debug("p[1] = %.2f" % lor_p[1])
@@ -453,15 +453,15 @@ class Main():
         log.debug("p[3] = %.2f" % lor_p[3])
 
         fwhm = np.abs(gauss_p[2] * 2 * np.sqrt(2 * np.log(2)))
-        filter_ = np.where(np.abs(z - gauss_p[1]) < fwhm, True, False)
+        filter_ = np.where(np.abs(w - gauss_p[1]) < fwhm, True, False)
 
         # d = d - d[~filter_].mean()
 
         if show:
-            plt.plot(z, self.gaussian(gauss_p, z), 'r-', lw=2, label='Gaussian Fit')
-            plt.plot(z, self.lorentzian(lor_p, z), 'b-', lw=2, label='Lorentzian Fit')
-            plt.plot(z[~filter_], d[~filter_], 'ko')
-            plt.plot(z[filter_], d[filter_], 'ro')
+            plt.plot(w, self.gaussian(gauss_p, w), 'r-', lw=2, label='Gaussian Fit')
+            # plt.plot(w, self.lorentzian(lor_p, w), 'b-', lw=2, label='Lorentzian Fit')
+            plt.plot(w[~filter_], d[~filter_], 'ko')
+            plt.plot(w[filter_], d[filter_], 'ro')
             plt.title('Spectral profile of the masked area.')
             plt.grid()
             plt.legend(loc='best')
