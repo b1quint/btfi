@@ -339,7 +339,6 @@ class MakeCube(object):
         self.output_file = args.output
         self.verbose = not args.quiet
 
-
     def print_header(self):
         """
         Print this program's header.
@@ -350,7 +349,6 @@ class MakeCube(object):
         else:
             print(__doc__)
         return None
-
 
     def run(self):
         """
@@ -367,7 +365,6 @@ class MakeCube(object):
         self.save_datacube()
         if self.verbose:
             print(" All done!\n")
-
 
     def save_datacube(self):
         """

@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
+from astropy import wcs
+from astropy import units as u
+from astropy.coordinates import SkyCoord
 from astropy.visualization import LogStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 from scipy.optimize import leastsq
@@ -341,12 +344,12 @@ class Main():
         s = d.sum(axis=2)
         s = s.sum(axis=1)
 
-        gauss_p, _ = self.fit_gaussian(z, s)
+        gauss_pw, _ = self.fit_gaussian(z, s)
         log.debug("Gaussian parameters ---")
-        log.debug("p[0] = %.2f" % gauss_p[0])
-        log.debug("p[1] = %.2f" % gauss_p[1])
-        log.debug("p[2] = %.2f" % gauss_p[2])
-        log.debug("p[3] = %.2f" % gauss_p[3])
+        log.debug("p[0] = %.2f" % gauss_pw[0])
+        log.debug("p[1] = %.2f" % gauss_pw[1])
+        log.debug("p[2] = %.2f" % gauss_pw[2])
+        log.debug("p[3] = %.2f" % gauss_pw[3])
 
         lor_p = self.fit_lorentzian(z, s)
         log.debug("Lorentzian parameters ---")
@@ -355,11 +358,11 @@ class Main():
         log.debug("p[2] = %.2f" % lor_p[2])
         log.debug("p[3] = %.2f" % lor_p[3])
 
-        fwhm = np.abs(gauss_p[2] * 2 * np.sqrt(2 * np.log(2)))
-        filter_ = np.where(np.abs(z - gauss_p[1]) < fwhm, True, False)
+        fwhm = np.abs(gauss_pw[2] * 2 * np.sqrt(2 * np.log(2)))
+        filter_ = np.where(np.abs(z - gauss_pw[1]) < fwhm, True, False)
 
         if show:
-            plt.plot(z, self.gaussian(gauss_p, z), 'r-', lw=2, label='Gaussian Fit')
+            plt.plot(z, self.gaussian(gauss_pw, z), 'r-', lw=2, label='Gaussian Fit')
             plt.plot(z, self.lorentzian(lor_p, z), 'b-', lw=2, label='Lorentzian Fit')
             plt.plot(z, s, 'ko')
             plt.plot(z[filter_], s[filter_], 'ro')
@@ -381,6 +384,23 @@ class Main():
 
         snr_mask = ndimage.binary_opening(snr_mask, iterations=5)
         snr_mask = ndimage.binary_closing(snr_mask, iterations=5)
+
+        # SNR MASK Based on aperture
+        aperture_radius = 1 # arcmin
+        aperture_radius = aperture_radius / 60 # arcmin to deg
+        aperture_radius = np.abs(aperture_radius / h['CD1_1']) # deg to pix
+        print(aperture_radius)
+        # c = SkyCoord(h['RA'], h['DEC'], frame=h['RADECSYS'].lower(), unit=(u.hourangle, u.deg))
+        c = SkyCoord('7:41:55.400', '-18:12:33.00', frame=h['RADECSYS'].lower(), unit=(u.hourangle, u.deg))
+        x, y = np.arange(h['NAXIS1']), np.arange(h['NAXIS2'])
+        X, Y = np.meshgrid(x, y)
+        center_wcs = wcs.WCS(h)
+        center = center_wcs.wcs_world2pix(c.ra.deg, c.dec.deg, 6563, 1)
+        snr_mask = np.sqrt((X - center[0]) ** 2 + (Y - center[1]) ** 2)
+        snr_mask = np.where(snr_mask < aperture_radius, True, False)
+        plt.imshow(snr_mask)
+        plt.show()
+
         if show:
 
             fig1 = plt.figure(figsize=(20, 5))
@@ -437,41 +457,42 @@ class Main():
         d = d * snr_mask
         d = d.sum(axis=2)
         d = d.sum(axis=1)
+        d = d / np.float(h['EXPTIME'])
 
-        gauss_p, _ = self.fit_gaussian(w, d)
-        log.debug("Gaussian parameters ---")
-        log.debug("p[0] = %.2f" % gauss_p[0])
-        log.debug("p[1] = %.2f" % gauss_p[1])
-        log.debug("p[2] = %.2f" % gauss_p[2])
-        log.debug("p[3] = %.2f" % gauss_p[3])
+        gauss_pw, _ = self.fit_gaussian(w, d)
+        gauss_pc, _ = self.fit_gaussian(z, d)
+        log.info("Gaussian parameters ---")
+        log.info("p[0] = %.4f ADU/s" % gauss_pw[0])
+        log.info("p[1] = %.4f A = %.4f channels" % (gauss_pw[1], gauss_pc[1]))
+        log.info("p[2] = %.4f A = %.4f channels" % (gauss_pw[2], gauss_pc[2]))
+        log.info("p[3] = %.4f ADU/s" % gauss_pw[3])
 
-        lor_p = self.fit_lorentzian(w, d)
-        log.debug("Lorentzian parameters ---")
-        log.debug("p[0] = %.2f" % lor_p[0])
-        log.debug("p[1] = %.2f" % lor_p[1])
-        log.debug("p[2] = %.2f" % lor_p[2])
-        log.debug("p[3] = %.2f" % lor_p[3])
+        # total_flux = (gauss_pc[0] - gauss_pc[3]) * np.sqrt(2 * np.pi) \
+        #              * gauss_pc[2]
+        # log.info("Total flux = (a - d) * sqrt(2pi) * c")
+        # log.info(" %.5E ADU/s" % total_flux)
 
-        fwhm = np.abs(gauss_p[2] * 2 * np.sqrt(2 * np.log(2)))
-        filter_ = np.where(np.abs(w - gauss_p[1]) < fwhm, True, False)
+        fwhm = np.abs(gauss_pw[2] * 2 * np.sqrt(2 * np.log(2)))
+        filter_ = np.where(np.abs(w - gauss_pw[1]) < fwhm, True, False)
 
         # d = d - d[~filter_].mean()
 
         if show:
-            plt.plot(w, self.gaussian(gauss_p, w), 'r-', lw=2, label='Gaussian Fit')
+            plt.plot(w, self.gaussian(gauss_pw, w), 'r-', lw=2, label='Gaussian Fit')
             # plt.plot(w, self.lorentzian(lor_p, w), 'b-', lw=2, label='Lorentzian Fit')
             plt.plot(w[~filter_], d[~filter_], 'ko')
             plt.plot(w[filter_], d[filter_], 'ro')
             plt.title('Spectral profile of the masked area.')
+            plt.xlabel(u'Wavelenght [$\AA$]')
+            plt.ylabel(u'Integrated Count Level [ADU/s]')
             plt.grid()
             plt.legend(loc='best')
             plt.gcf().canvas.mpl_connect('key_press_event', self.on_key_press)
             plt.show()
 
-        integrated_flux = (gauss_p[0] - gauss_p[3]) \
-                          / (gauss_p[2] * np.sqrt(2 * np.pi))
-        integrated_flux /= float(h["EXPTIME"])
-        log.info("Total flux: %.2f counts/s" % (integrated_flux))
+        integrated_flux = (gauss_pc[0] - gauss_pc[3]) \
+                          * (gauss_pc[2] * np.sqrt(2 * np.pi))
+        log.info("Total flux: %.4E adu/s" % (integrated_flux))
 
         snr_mask = np.where(snr_mask, 1, 0)
         pyfits.writeto(
@@ -631,7 +652,7 @@ stream_handler.setFormatter(log_formatter)
 
 log = logging.getLogger()
 log.addHandler(stream_handler)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 if __name__ == '__main__':
 
