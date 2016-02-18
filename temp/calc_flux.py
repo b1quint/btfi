@@ -385,20 +385,36 @@ class Main():
         snr_mask = ndimage.binary_opening(snr_mask, iterations=5)
         snr_mask = ndimage.binary_closing(snr_mask, iterations=5)
 
-        # SNR MASK Based on aperture
-        aperture_radius = 1 # arcmin
-        aperture_radius = aperture_radius / 60 # arcmin to deg
-        aperture_radius = np.abs(aperture_radius / h['CD1_1']) # deg to pix
-        print(aperture_radius)
-        # c = SkyCoord(h['RA'], h['DEC'], frame=h['RADECSYS'].lower(), unit=(u.hourangle, u.deg))
-        c = SkyCoord('7:41:55.400', '-18:12:33.00', frame=h['RADECSYS'].lower(), unit=(u.hourangle, u.deg))
+        # SNR MASK Based on circular aperture
+        # aperture_radius = 1 # arcmin
+        # aperture_radius = aperture_radius / 60 # arcmin to deg
+        # aperture_radius = np.abs(aperture_radius / h['CD1_1']) # deg to pix
+        # print(aperture_radius)
+        # c = SkyCoord('7:41:55.400', '-18:12:33.00', frame=h['RADECSYS'].lower(), unit=(u.hourangle, u.deg))
+        # x, y = np.arange(h['NAXIS1']), np.arange(h['NAXIS2'])
+        # X, Y = np.meshgrid(x, y)
+        # center_wcs = wcs.WCS(h)
+        # center = center_wcs.wcs_world2pix(c.ra.deg, c.dec.deg, 6563, 1)
+        # snr_mask = np.sqrt((X - center[0]) ** 2 + (Y - center[1]) ** 2)
+        # snr_mask = np.where(snr_mask < aperture_radius, True, False)
+        # plt.imshow(snr_mask)
+        # plt.show()
+
+        # SNR MASK Based on squared area
+        aperture_width = 256 * 4.048e-1 # arcsec (from original image)
+        aperture_width /= 3600 # arcsec to deg
+        aperture_width /= np.abs(h['CD1_1']) # deg to pix
+        c = SkyCoord('7:41:55.197', '-18:12:35.97', frame=h['RADECSYS'].lower(), unit=(u.hourangle, u.deg))
         x, y = np.arange(h['NAXIS1']), np.arange(h['NAXIS2'])
         X, Y = np.meshgrid(x, y)
         center_wcs = wcs.WCS(h)
         center = center_wcs.wcs_world2pix(c.ra.deg, c.dec.deg, 6563, 1)
-        snr_mask = np.sqrt((X - center[0]) ** 2 + (Y - center[1]) ** 2)
-        snr_mask = np.where(snr_mask < aperture_radius, True, False)
+        print(center, np.abs(X - center[0]), np.abs(Y - center[1]), aperture_width)
+        X = np.where(np.abs(X - center[0]) < aperture_width / 2, True, False)
+        Y = np.where(np.abs(Y - center[1]) < aperture_width / 2, True, False)
+        snr_mask = X * Y
         plt.imshow(snr_mask)
+        plt.gcf().canvas.mpl_connect('key_press_event', self.on_key_press)
         plt.show()
 
         if show:

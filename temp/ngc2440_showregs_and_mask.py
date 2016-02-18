@@ -17,13 +17,13 @@ mask = numpy.repeat(mask, 4, axis=2)
 mask[:,:,0] *= 1.
 mask[:,:,1] *= 0.
 mask[:,:,2] *= 0.
-mask[:,:,3] *= 0.75
+mask[:,:,3] *= 0.25
 
 fig = aplpy.FITSFigure(fits_file)
 fig.show_grayscale()
 plt.imshow(mask)
 
-fig.show_regions(regions)
+# fig.show_regions(regions)
 fig.tick_labels.set_font(size='small')
 fig.save("plot.png")
 
