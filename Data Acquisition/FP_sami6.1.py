@@ -1,18 +1,9 @@
-#!/Users/pamram/anaconda/bin/python
-#import math
-#math.pi
-import scipy
-import scipy.constants as const
-import time
-import datetime
-import sys
-
+#!/usr/bin/python3
 """
     
     THIS PROGRAM COMPUTE A SCANNING SEQUENCE FOR PF/SAM/SOAR
     Philippe Amram
     last update: 2015, March, 19
-
 
 NOTATIONS:
     epais = distance between the two plates
@@ -23,6 +14,12 @@ NOTATIONS:
     INTERACTIVE
     In interactive mode, interactive = True, in non-interactive mode, interactive = False
 """
+
+import scipy
+import scipy.constants as const
+import time
+import datetime
+import sys
 
 print("\n{}".format("-"*100))
 print("\n WELCOME ! ")
