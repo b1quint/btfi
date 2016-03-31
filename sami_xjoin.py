@@ -12,12 +12,22 @@ import sys
 def main():
 
     # Parsing Arguments ---
-    parser = argparse.ArgumentParser(description="Join extensions existent in a single FITS file.")
-    parser.add_argument('-b','--bias', type=str, default=None, help="Consider BIAS file for subtraction.")
-    parser.add_argument('-d','--dark', type=str, default=None, help="Consider DARK file for subtraction.")
-    parser.add_argument('-f','--flat', type=str, default=None, help="Consider FLAT file for division.")
-    parser.add_argument('-q','--quiet', action='store_true', help="Run quietly.")
-    parser.add_argument('files', metavar='files', type=str, nargs='+', help="input filenames.")
+    parser = argparse.ArgumentParser(
+            description="Join extensions existent in a single FITS file."
+    )
+
+    parser.add_argument('-b','--bias', type=str, default=None,
+                        help="Consider BIAS file for subtraction.")
+    parser.add_argument('-d','--dark', type=str, default=None,
+                        help="Consider DARK file for subtraction.")
+    parser.add_argument('-f','--flat', type=str, default=None,
+                        help="Consider FLAT file for division.")
+    parser.add_argument('-t','--exptime', type=str, action='store_true',
+                        help="Divide by exposure time.")
+    parser.add_argument('-q','--quiet', action='store_true',
+                        help="Run quietly.")
+    parser.add_argument('files', metavar='files', type=str, nargs='+',
+                        help="input filenames.")
 
     args = parser.parse_args()
     v = not args.quiet
@@ -77,8 +87,10 @@ def main():
             new_data[dy[0]:dy[1],dx[0]:dx[1]] = trim
 
         # Getting the main header of the FITS file instead of the header
-        # an extention.
+        # an extension.
         header = fits_file[0].header
+        header.append('UNITS')
+        header.set('UNITS', value='COUNTS', comment='Pixel intensity units.')
 
         # BIAS subtraction
         if args.bias is not None:
@@ -100,6 +112,12 @@ def main():
             new_data = new_data / flat_file
             header['FLATFILE'] = args.flat
             prefix = 'f' + prefix
+
+        if args.exptime is True:
+            exptime = float(header['EXPTIME'])
+            new_data /= exptime
+            header['UNITS'] = 'COUNTS/s'
+            prefix = 't' + prefix
 
         # Removing bad column and line
         n_rows, n_columns = new_data.shape
