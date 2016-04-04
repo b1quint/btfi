@@ -22,7 +22,7 @@ def main():
                         help="Consider DARK file for subtraction.")
     parser.add_argument('-f','--flat', type=str, default=None,
                         help="Consider FLAT file for division.")
-    parser.add_argument('-t','--exptime', type=str, action='store_true',
+    parser.add_argument('-t','--exptime', action='store_true',
                         help="Divide by exposure time.")
     parser.add_argument('-q','--quiet', action='store_true',
                         help="Run quietly.")
