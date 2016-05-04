@@ -97,6 +97,7 @@ def main():
             bias_file = pyfits.getdata(args.bias)
             new_data = new_data - bias_file
             header['BIASFILE'] = args.bias
+            header.add_history('Bias subtracted')
             prefix = 'b' + prefix
 
         # DARK subtraction
@@ -105,18 +106,21 @@ def main():
             new_data = new_data - dark_file
             header['DARKFILE'] = args.dark
             prefix = 'd' + prefix
+            header.add_history('Dark subtracted')
 
         # FLAT dirvision
         if args.flat is not None:
             flat_file = pyfits.getdata(args.flat)
             new_data = new_data / flat_file
             header['FLATFILE'] = args.flat
+            header.add_history('Flat normalized') 
             prefix = 'f' + prefix
 
         if args.exptime is True:
             exptime = float(header['EXPTIME'])
             new_data /= exptime
             header['UNITS'] = 'COUNTS/s'
+            header.add_history('Divided by exposure time.')
             prefix = 't' + prefix
 
         # Removing bad column and line
@@ -126,6 +130,7 @@ def main():
         new_data[:,-2:] = temp_column
 
         # Writing file
+        header.add_history('Extensions joined using "sami_xjoin"')
         path, filename = os.path.split(filename)
         pyfits.writeto(os.path.join(path, prefix + filename), new_data, header, clobber=True)
 
