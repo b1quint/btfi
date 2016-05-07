@@ -216,7 +216,7 @@ def clean_lines(_data):
         x0 = line[0]
         xf = line[1]
         y = line[2]
-        _data = clean_line(_data, x0, x0, y)
+        _data = clean_line(_data, x0, xf, y)
     return _data
 
 
