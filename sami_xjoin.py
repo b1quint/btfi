@@ -105,7 +105,7 @@ def main():
 
             # Fit and remove OVERSCAN
             x = np.arange(bias.size) + 1
-            bias_fit_pars = np.polyfit(x, bias, 4) # Last par = inf
+            bias_fit_pars = np.polyfit(x, bias, 2)  # Last par = inf
             bias_fit = np.polyval(bias_fit_pars, x)
             bias_fit = bias_fit.reshape((bias_fit.size, 1))
             bias_fit = np.repeat(bias_fit, trim.shape[1], axis=1)
@@ -136,6 +136,13 @@ def main():
             header['DARKFILE'] = args.dark
             prefix = 'd' + prefix
             header.add_history('Dark subtracted')
+
+        # Remove lateral glows
+        if args.glow is not None:
+            dark = pyfits.getdata(args.glow)
+            new_data = remove_glows(new_data, dark)
+            header.add_history('Lateral glow removed using %s file' % args.dark)
+            prefix = 'g' + prefix
 
         # FLAT division
         if args.flat is not None:
@@ -168,13 +175,6 @@ def main():
             new_data = clean_lines(new_data)
             header.add_history('Cleaned bad columns and lines.')
             prefix = 'c' + prefix
-
-        # Remove lateral glows
-        if args.glow is not None:
-            dark = pyfits.getdata(args.glow)
-            new_data = remove_glows(new_data, dark)
-            header.add_history('Lateral glow removed using %s file' % args.dark)
-            prefix = 'g' + prefix
 
         # Writing file
         header.add_history('Extensions joined using "sami_xjoin"')
