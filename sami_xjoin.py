@@ -164,8 +164,8 @@ def main():
 
         # Clean known bad columns and lines
         if args.clean is True:
-            new_data = clean_columns(new_data)
-            # new_data = clean_lines(new_data)
+            # new_data = clean_columns(new_data)
+            new_data = clean_lines(new_data)
             header.add_history('Cleaned bad columns and lines.')
             prefix = 'c' + prefix
 
