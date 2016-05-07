@@ -60,8 +60,8 @@ INITIALISATION OF THE TWO SCRIPT FILES
 
     """ 2) INITIALISATION OF THE RUNNING DIRECTORY """
 
-    #dirtime = time.strftime('%Y%m%d')
-    dirtime = "20151204"
+    dirtime = time.strftime('%Y%m%d')
+    # dirtime = "20151204"
     if interactive:
         print("\n Data of the observing run. ")
         print(" The date of the run (e.g. 20150130) will be automatically added to the address of the directory you will give now")
