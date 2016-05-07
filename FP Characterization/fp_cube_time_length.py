@@ -4,7 +4,7 @@
 from datetime import timedelta
 
 # Input ---
-exposure_time = 90.0 # [seconds]
+exposure_time = 30.0 # [seconds]
 number_of_channels = 44 # [--]
 readout_time = 2.6 # [seconds]
 fp_overhead_time_per_step = 4.15 # [seconds]
