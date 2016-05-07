@@ -204,7 +204,7 @@ def clean_columns(_data):
 
 def clean_line(_data, x0, xf, y, n=5):
     t1 = _data[y - n:y, x0:xf]
-    t2 = _data[y + 1:y + 1, x0:xf]
+    t2 = _data[y + 1:y + n, x0:xf]
     t = np.vstack((t1, t2))
     _data[y, x0:xf] = np.median(t)
     return _data
