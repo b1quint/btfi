@@ -194,10 +194,9 @@ def clean_column(_data, x0, y0, yf, n=5):
 def clean_columns(_data):
     global bad_columns
     for column in bad_columns:
-        # "-1" fix from DS9 to Python
-        x0 = column[0] - 1
-        y0 = column[1] - 1
-        yf = column[2] - 1
+        x0 = column[0]
+        y0 = column[1]
+        yf = column[2]
         _data = clean_column(_data, x0, y0, yf)
     return _data
 
@@ -213,10 +212,9 @@ def clean_line(_data, x0, xf, y, n=5):
 def clean_lines(_data):
     global bad_lines
     for line in bad_lines:
-        # "-1" fix from DS9 to Python
-        x0 = line[0] - 1
-        xf = line[1] - 1
-        y = line[2] - 1
+        x0 = line[0]
+        xf = line[1]
+        y = line[2]
         _data = clean_line(_data, x0, x0, y)
     return _data
 
