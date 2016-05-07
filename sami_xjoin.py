@@ -170,7 +170,7 @@ def main():
 
         # Remove lateral glows
         if args.glow is not None:
-            dark = pyfits.getdata(args.dark)
+            dark = pyfits.getdata(args.glow)
             new_data = remove_glows(data, dark)
             header.add_history('Lateral glow removed using %s file' % args.dark)
             prefix = 'g' + prefix
