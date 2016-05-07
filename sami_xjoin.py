@@ -9,25 +9,26 @@ import numpy as np
 import os
 import sys
 
-bad_columns =[
-        [167, 0, 512],
-        [476, 0, 513],
-        [602, 0, 513],
-        [671, 0, 513],
-        [810, 0, 513],
-        [918, 0, 513],
-        [917, 0, 513],
-        [213, 513, 1024]
-        ]
+bad_columns = [
+    [167, 0, 512],
+    [476, 0, 513],
+    [602, 0, 513],
+    [671, 0, 513],
+    [810, 0, 513],
+    [918, 0, 513],
+    [917, 0, 513],
+    [213, 513, 1024]
+    ]
 
-bad_lines = [[214, 239, 688],
-         [477, 516, 490],
-         [387, 429, 455],
-         [574, 603, 494],
-         [574, 603, 493],
-         [640, 672, 388],
-         [604, 671, 388]
-         ]
+bad_lines = [
+    [214, 239, 688],
+    [477, 516, 490],
+    [387, 429, 455],
+    [574, 603, 494],
+    [574, 603, 493],
+    [640, 672, 388],
+    [604, 671, 388]
+    ]
 
 
 def main():
@@ -164,7 +165,7 @@ def main():
         # Clean known bad columns and lines
         if args.clean is True:
             new_data = clean_columns(new_data)
-            new_data = clean_lines(new_data)
+            # new_data = clean_lines(new_data)
             header.add_history('Cleaned bad columns and lines.')
             prefix = 'c' + prefix
 
