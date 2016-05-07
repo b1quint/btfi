@@ -198,7 +198,7 @@ def clean_columns(_data):
         x0 = column[0] - 1
         y0 = column[1] - 1
         yf = column[2] - 1
-        _data = clean_column(x0, y0, yf)
+        _data = clean_column(_data, x0, y0, yf)
     return _data
 
 
