@@ -1,7 +1,0 @@
-# IPython log file
-
-get_ipython().magic('help')
-get_ipython().magic('logstart')
-import astropy.io.fits as pyfits
-import astropy.io.fits as pyfits
-get_ipython().magic('logstop')
