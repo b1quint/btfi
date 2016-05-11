@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 # -*- coding: utf8 -*-
 """
     SAMI XJoin
@@ -61,14 +61,14 @@ dilstruct[4, 4] = 0
 
 # noinspection PyPep8Naming
 class SAMI_XJoin:
-    def __init__(
-            self, list_of_files, bias_file=None, clean=False, dark_file=None,
-            flat_file=None, glow_file=None, time=False, verbose=False
-    ):
+    def __init__(self, list_of_files, bias_file=None, clean=False,
+                 cosmic_rays=False, dark_file=None, flat_file=None,
+                 glow_file=None, time=False, verbose=False):
 
         self.set_verbose(verbose)
-        self.main(list_of_files, bias_file=None, clean=False,
-                 dark_file=None, flat_file=None, glow_file=None, time=False)
+        self.main(list_of_files, bias_file=bias_file, clean=clean,
+                  cosmic_rays=cosmic_rays, dark_file=dark_file,
+                  flat_file=flat_file, glow_file=glow_file, time=time)
 
         return
 
@@ -180,12 +180,20 @@ class SAMI_XJoin:
     def get_header(filename):
 
         fits_file = pyfits.open(filename)
-        header = fits_file[0].header
-        header.append('UNITS')
-        header.set('UNITS', value='COUNTS',
-                   comment='Pixel intensity units.')
+        h0 = fits_file[0].header
+        h1 = fits_file[1].header
 
-        return header
+        # TODO - Multiple header inheritance.
+        # If there's any card that should be passed from the extentions
+        # header to the main header, uncomment bellow.
+        # for key in h1:
+        #     if key not in h0:
+        #         h0.set(key, value=h1[key], comment=h1.comments[key])
+
+        h0.append('UNITS')
+        h0.set('UNITS', value='COUNTS', comment='Pixel intensity units.')
+
+        return h0
 
     @staticmethod
     def get_joined_data(filename):
@@ -230,8 +238,9 @@ class SAMI_XJoin:
 
         return new_data
 
-    def main(self, list_of_files, bias_file=None, clean=False, dark_file=None,
-             flat_file=None, glow_file=None, time=False):
+    def main(self, list_of_files, bias_file=None, clean=False,
+             cosmic_rays=False, dark_file=None, flat_file=None, glow_file=None,
+             time=False):
 
         self.print_header()
         log.info('Processing data')
@@ -254,6 +263,11 @@ class SAMI_XJoin:
             # DARK subtraction
             data, header, prefix = self.dark_subtraction(
                 data, header, prefix, dark_file
+            )
+
+            # Remove cosmic rays and hot pixels
+            data, header, prefix = self.remove_cosmic_rays(
+                data, header, prefix, glow_file
             )
 
             # Remove lateral glows
@@ -296,28 +310,66 @@ class SAMI_XJoin:
             "\n Starting program.")
         log.info(msg)
 
+    @staticmethod
+    def remove_cosmic_rays(data, header, prefix, cosmic_rays):
+
+        if cosmic_rays:
+            c = CosmicsImage(data.transpose(), gain=2.1, readnoise=1.83,
+                             satlevel=65536)
+            c.run(maxiter=4)
+
+            data = c.cleanarray.transpose()
+
+            header.add_history('Cosmic rays and hot pixels removed using LACosmic')
+            prefix += 'r'
+
+        return data, header, prefix
+
+
     def remove_glows(self, data, header, prefix, glow_file):
 
         if glow_file is not None:
+
+            # Create four different regions.
+            regions = [
+                [np.median(data[539:589, 6:56]),  # Top Left
+                 np.median(data[539:589, 975:1019])],  # Top Right
+                [np.median(data[449:506, 6:56]),  # Bottom Left
+                 np.median(data[449:506, 975:1019])]  # Bottom Right
+                       ]
+            min_std_region = np.argmin(regions) % 2
+            # print(min_std_region)
+
+            # The upper reg has background lower or equal to the lower reg
+            midpt1 = regions[0][min_std_region]
+            midpt2 = regions[1][min_std_region]
+            diff = midpt2 - midpt1
+
             dark = pyfits.getdata(glow_file)
             dark = self.clean_columns(dark)
             dark = self.clean_lines(dark)
 
-            dark_midpt1 = np.median(dark[539:589, 999:1009])
-            dark_midpt2 = np.median(dark[449:506, 975:1019])
+            dark_regions = [
+                [np.median(dark[539:589, 6:56]),  # Top Left
+                 np.median(dark[539:589, 975:1019])],  # Top Right
+                [np.median(dark[449:506, 6:56]),  # Bottom Left
+                 np.median(dark[449:506, 975:1019])]  # Bottom Right
+                       ]
+
+            dark_midpt1 = dark_regions[0][min_std_region]
+            dark_midpt2 = dark_regions[1][min_std_region]
+
             dark_diff = dark_midpt2 - dark_midpt1
             dark -= dark_midpt1
-
-            midpt1 = np.median(data[539:589, 999:1009])
-            midpt2 = np.median(data[449:506, 975:1019])
-            diff = midpt2 - midpt1
 
             k = diff / dark_diff
             temp_dark = dark * k
             data -= midpt1
             data -= temp_dark
 
-            header.add_history('Lateral glow removed using %s file' % dark)
+            # print(k)
+
+            header.add_history('Lateral glow removed using %s file' % glow_file)
             prefix = 'g' + prefix
 
         return data, header, prefix
@@ -537,7 +589,7 @@ class CosmicsImage:
         # each object.
         if len(slicecouplelist) != n:
             # This never happened, but you never know ...
-            raise (RuntimeError, "Mega error in labelmask !")
+            raise RuntimeError("Mega error in labelmask !")
         centers = [[(tup[0].start + tup[0].stop) / 2.0,
                     (tup[1].start + tup[1].stop) / 2.0] for tup in
                    slicecouplelist]
@@ -644,7 +696,7 @@ class CosmicsImage:
 
             if np.alen(goodcutout) >= 25:
                 # This never happened, but you never know ...
-                raise (RuntimeError, "Mega error in clean !")
+                raise RuntimeError("Mega error in clean !")
             elif np.alen(goodcutout) > 0:
                 replacementvalue = np.median(goodcutout)
             else:
@@ -762,8 +814,8 @@ class CosmicsImage:
         if verbose is None:
             verbose = self.verbose
         if not self.satlevel > 0:
-            raise (RuntimeError,
-                   "Cannot determine satstars : you gave satlevel <= 0 !")
+            raise RuntimeError("Cannot determine satstars: "
+                               "you gave satlevel <= 0 !")
         if self.satstars is None:
             self.findsatstars(verbose=verbose)
         return self.satstars
@@ -1079,7 +1131,7 @@ def rebin2x2(a):
     inshape = np.array(a.shape)
     if not (inshape % 2 == np.zeros(
             2)).all():  # Modulo check to see if size is even
-        raise (RuntimeError, "I want even image shapes !")
+        raise RuntimeError("I want even image shapes !")
 
     return rebin(a, inshape / 2)
 
@@ -1146,16 +1198,19 @@ if __name__ == '__main__':
                         help="Consider FLAT file for division.")
     parser.add_argument('-g', '--glow', type=str, default=None,
                         help="Consider DARK file to correct lateral glows.")
-    parser.add_argument('-t', '--exptime', action='store_true',
-                        help="Divide by exposure time.")
     parser.add_argument('-q', '--quiet', action='store_true',
                         help="Run quietly.")
+    parser.add_argument('-r', '--rays', action='store_true',
+                        help='Use LACosmic.py to remove cosmic rays and hot '
+                             'pixels.')
+    parser.add_argument('-t', '--exptime', action='store_true',
+                        help="Divide by exposure time.")
     parser.add_argument('files', metavar='files', type=str, nargs='+',
                         help="input filenames.")
 
     pargs = parser.parse_args()
     SAMI_XJoin(
         pargs.files, bias_file=pargs.bias, clean=pargs.clean,
-        dark_file=pargs.dark, flat_file=pargs.flat, glow_file=pargs.glow,
-        time=pargs.exptime, verbose=not pargs.quiet
+        cosmic_rays=pargs.rays, dark_file=pargs.dark, flat_file=pargs.flat,
+        glow_file=pargs.glow, time=pargs.exptime, verbose=not pargs.quiet
     )
