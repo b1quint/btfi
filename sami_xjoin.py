@@ -31,15 +31,17 @@ from __future__ import division, print_function
 
 import astropy.io.fits as pyfits
 import argparse
+import logging as log
 import numpy as np
 import os
-import sys
 
 from scipy import ndimage
+from scipy import signal
 
 try:
     xrange
 except NameError:
+    # noinspection PyShadowingBuiltins
     xrange = range
 
 # Piece of code from cosmics.py
@@ -56,148 +58,303 @@ dilstruct[0, 4] = 0
 dilstruct[4, 0] = 0
 dilstruct[4, 4] = 0
 
-class SAMI_XJoin(object):
-    def __init__(self, verbose=False, *args, **kwargs):
-        self.main(*args, **kwargs)
 
-    def main(self, list_of_files, bias=None, clean=False, dark=None, flat=None,
-             glow=None, time=False, verbose=False):
+# noinspection PyPep8Naming
+class SAMI_XJoin:
+    def __init__(
+            self, list_of_files, bias_file=None, clean=False, dark_file=None,
+            flat_file=None, glow_file=None, time=False, verbose=False
+    ):
 
-        v = verbose
-        if v:
-            print("\n SAMI - Join Extensions")
-            print(" by Bruno Quint (bquint@astro.iag.usp.br)")
-            print(" Mar 2015 - Version 0.4")
-            print("\n Starting program.")
+        self.set_verbose(verbose)
+        self.main(list_of_files, bias_file=None, clean=False,
+                 dark_file=None, flat_file=None, glow_file=None, time=False)
 
-        list_of_files = args.files
+        return
+
+    @staticmethod
+    def bias_subtraction(data, header, prefix, bias_file):
+
+        if bias_file is not None:
+            bias = pyfits.getdata(bias_file)
+            data -= bias
+            header['BIASFILE'] = bias_file
+            header.add_history('Bias subtracted')
+            prefix = 'b' + prefix
+
+        return data, header, prefix
+
+    @staticmethod
+    def clean_column(_data, x0, y0, yf, n=5):
+        t1 = _data[y0:yf, x0 - n:x0]
+        t2 = _data[y0:yf, x0 + 1:x0 + n]
+        t = np.hstack((t1, t2))
+        _data[y0:yf, x0] = np.median(t)
+        return _data
+
+    def clean_columns(self, _data):
+        bad_columns = [
+            [167, 0, 512],
+            [476, 0, 513],
+            [602, 0, 513],
+            [671, 0, 513],
+            [810, 0, 513],
+            [918, 0, 513],
+            [917, 0, 513],
+            [213, 513, 1024]
+        ]
+
+        for column in bad_columns:
+            x0 = column[0]
+            y0 = column[1]
+            yf = column[2]
+            _data = self.clean_column(_data, x0, y0, yf)
+        return _data
+
+    @staticmethod
+    def clean_line(_data, x0, xf, y, n=5):
+        t1 = _data[y - n:y, x0:xf]
+        t2 = _data[y + 1:y + n, x0:xf]
+        t = np.vstack((t1, t2))
+        _data[y, x0:xf] = np.median(t)
+        return _data
+
+    def clean_lines(self, _data):
+        bad_lines = [
+            [214, 239, 688],
+            [477, 516, 490],
+            [387, 429, 455],
+            [574, 603, 494],
+            [574, 603, 493],
+            [640, 672, 388],
+            [604, 671, 388]
+        ]
+
+        for line in bad_lines:
+            x0 = line[0]
+            xf = line[1]
+            y = line[2]
+            _data = self.clean_line(_data, x0, xf, y)
+        return _data
+
+    @staticmethod
+    def dark_subtraction(data, header, prefix, dark_file):
+
+        if dark_file is not None:
+            dark = pyfits.getdata(dark_file)
+            data -= dark
+            header['DARKFILE'] = dark_file
+            prefix = 'd' + prefix
+            header.add_history('Dark subtracted')
+
+        return data, header, prefix
+
+    @staticmethod
+    def divide_by_flat(data, header, prefix, flat_file):
+
+        if flat_file is not None:
+            flat = pyfits.getdata(flat_file)
+            data /= flat
+            header['FLATFILE'] = flat_file
+            header.add_history('Flat normalized')
+            prefix = 'f' + prefix
+
+        return data, header, prefix
+
+    @staticmethod
+    def divide_by_exposuretime(data, header, prefix, time):
+
+        if time is True:
+            try:
+                exptime = float(header['EXPTIME'])
+                data /= exptime
+                header['UNITS'] = 'COUNTS/s'
+                header.add_history('Divided by exposure time.')
+                prefix = 't' + prefix
+            except KeyError:
+                pass
+
+        return data, header, prefix
+
+    @staticmethod
+    def get_header(filename):
+
+        fits_file = pyfits.open(filename)
+        header = fits_file[0].header
+        header.append('UNITS')
+        header.set('UNITS', value='COUNTS',
+                   comment='Pixel intensity units.')
+
+        return header
+
+    @staticmethod
+    def get_joined_data(filename):
+
+        fits_file = pyfits.open(filename)
+        w, h = str2pixels(fits_file[1].header['DETSIZE'])
+
+        log.info(' > %s' % filename)
+
+        # Correct for binning
+        bin_size = np.array(fits_file[1].header['CCDSUM'].split(' '),
+                            dtype=int)
+        bw, bh = w[1] // bin_size[0], h[1] // bin_size[1]
+
+        # Create empty full frame
+        new_data = np.empty((bh, bw), dtype=float)
+
+        # Process each extension
+        for i in range(1, 5):
+
+            tx, ty = str2pixels(fits_file[i].header['TRIMSEC'])
+            bx, by = str2pixels(fits_file[i].header['BIASSEC'])
+
+            data = fits_file[i].data
+            trim = data[ty[0] - 1:ty[1], tx[0] - 1:tx[1]]
+            bias = data[by[0] - 1:by[1], bx[0] - 1:bx[1]]
+
+            # Collapse the bias columns to a single column.
+            bias = np.median(bias, axis=1)
+
+            # Fit and remove OVERSCAN
+            x = np.arange(bias.size) + 1
+            bias_fit_pars = np.polyfit(x, bias, 2)  # Last par = inf
+            bias_fit = np.polyval(bias_fit_pars, x)
+            bias_fit = bias_fit.reshape((bias_fit.size, 1))
+            bias_fit = np.repeat(bias_fit, trim.shape[1], axis=1)
+
+            trim = trim - bias_fit
+            dx, dy = str2pixels(fits_file[i].header['DETSEC'])
+            dx, dy = dx // bin_size[0], dy // bin_size[1]
+            new_data[dy[0]:dy[1], dx[0]:dx[1]] = trim
+
+        return new_data
+
+    def main(self, list_of_files, bias_file=None, clean=False, dark_file=None,
+             flat_file=None, glow_file=None, time=False):
+
+        self.print_header()
+        log.info('Processing data')
         list_of_files = sorted(list_of_files)
-        number_of_files = len(list_of_files)
-
-        if v:
-            print(' Processing data:')
 
         for filename in list_of_files:
-
             prefix = "xj"
-            fits_file = pyfits.open(filename)
-            w, h = str2pixels(fits_file[1].header['DETSIZE'])
 
-            if v:
-                print(' > %s' % filename)
+            # Get joined data
+            data = self.get_joined_data(filename)
 
-                # Correct for binning
-                bin_size = np.array(fits_file[1].header['CCDSUM'].split(' '),
-                                    dtype=int)
-                bw, bh = w[1] // bin_size[0], h[1] // bin_size[1]
+            # Build header
+            header = self.get_header(filename)
 
-                # Create empty full frame
-                new_data = np.empty((bh, bw), dtype=float)
+            # BIAS subtraction
+            data, header, prefix = self.bias_subtraction(
+                data, header, prefix, bias_file
+            )
 
-                # Process each extension
-                for i in range(1, 5):
+            # DARK subtraction
+            data, header, prefix = self.dark_subtraction(
+                data, header, prefix, dark_file
+            )
 
-                    if v:
-                        sys.stdout.write('.')
-                        sys.stdout.flush()
+            # Remove lateral glows
+            data, header, prefix = self.remove_glows(
+                data, header, prefix, glow_file
+            )
 
-                    tx, ty = str2pixels(fits_file[i].header['TRIMSEC'])
-                    bx, by = str2pixels(fits_file[i].header['BIASSEC'])
+            # FLAT division
+            data, header, prefix = self.divide_by_flat(
+                data, header, prefix, flat_file
+            )
 
-                    data = fits_file[i].data
-                    trim = data[ty[0] - 1:ty[1], tx[0] - 1:tx[1]]
-                    bias = data[by[0] - 1:by[1], bx[0] - 1:bx[1]]
+            # Normalize by the EXPOSURE TIME
+            data, header, prefix = self.divide_by_exposuretime(
+                data, header, prefix, time
+            )
 
-                    # Collapse the bias columns to a single column.
-                    bias = np.median(bias, axis=1)
+            # Removing bad column and line
+            data = self.remove_bad_columns_and_lines(data)
 
-                    # Fit and remove OVERSCAN
-                    x = np.arange(bias.size) + 1
-                    bias_fit_pars = np.polyfit(x, bias, 2)  # Last par = inf
-                    bias_fit = np.polyval(bias_fit_pars, x)
-                    bias_fit = bias_fit.reshape((bias_fit.size, 1))
-                    bias_fit = np.repeat(bias_fit, trim.shape[1], axis=1)
+            # Clean known bad columns and lines
+            data, header, prefix = self.clean_hot_columns_and_lines(
+                data, header, prefix, clean
+            )
 
-                    trim = trim - bias_fit
-                    dx, dy = str2pixels(fits_file[i].header['DETSEC'])
-                    dx, dy = dx // bin_size[0], dy // bin_size[1]
-                    new_data[dy[0]:dy[1], dx[0]:dx[1]] = trim
+            # Writing file
+            header.add_history('Extensions joined using "sami_xjoin"')
+            path, filename = os.path.split(filename)
+            pyfits.writeto(os.path.join(path, prefix + filename), data,
+                           header, clobber=True)
 
-                # Getting the main header of the FITS file instead of the header
-                # an extension.
-                header = fits_file[0].header
-                header.append('UNITS')
-                header.set('UNITS', value='COUNTS',
-                           comment='Pixel intensity units.')
+            log.info("\n All done!")
 
-                # BIAS subtraction
-                if args.bias is not None:
-                    bias_file = pyfits.getdata(args.bias)
-                    new_data = new_data - bias_file
-                    header['BIASFILE'] = args.bias
-                    header.add_history('Bias subtracted')
-                    prefix = 'b' + prefix
+    @staticmethod
+    def print_header():
+        msg = (
+            "\n SAMI - Join Extensions"
+            " by Bruno Quint (bquint@astro.iag.usp.br)"
+            " Mar 2015 - Version 0.4"
+            "\n Starting program.")
+        log.info(msg)
 
-                # DARK subtraction
-                if args.dark is not None:
-                    dark_file = pyfits.getdata(args.dark)
-                    new_data = new_data - dark_file
-                    header['DARKFILE'] = args.dark
-                    prefix = 'd' + prefix
-                    header.add_history('Dark subtracted')
+    def remove_glows(self, data, header, prefix, glow_file):
 
-                # Remove lateral glows
-                if args.glow is not None:
-                    dark = pyfits.getdata(args.glow)
-                    new_data = remove_glows(new_data, dark)
-                    header.add_history(
-                        'Lateral glow removed using %s file' % args.dark)
-                    prefix = 'g' + prefix
+        if glow_file is not None:
+            dark = pyfits.getdata(glow_file)
+            dark = self.clean_columns(dark)
+            dark = self.clean_lines(dark)
 
-                # FLAT division
-                if args.flat is not None:
-                    flat_file = pyfits.getdata(args.flat)
-                    new_data = new_data / flat_file
-                    header['FLATFILE'] = args.flat
-                    header.add_history('Flat normalized')
-                    prefix = 'f' + prefix
+            dark_midpt1 = np.median(dark[539:589, 999:1009])
+            dark_midpt2 = np.median(dark[449:506, 975:1019])
+            dark_diff = dark_midpt2 - dark_midpt1
+            dark -= dark_midpt1
 
-                # Normalize by the EXPOSURE TIME
-                if args.exptime is True:
-                    try:
-                        exptime = float(header['EXPTIME'])
-                        new_data /= exptime
-                        header['UNITS'] = 'COUNTS/s'
-                        header.add_history('Divided by exposure time.')
-                        prefix = 't' + prefix
-                    except KeyError:
-                        pass
+            midpt1 = np.median(data[539:589, 999:1009])
+            midpt2 = np.median(data[449:506, 975:1019])
+            diff = midpt2 - midpt1
 
-                # Removing bad column and line
-                n_rows, n_columns = new_data.shape
-                temp_column = new_data[:, n_columns // 2 - 1:n_columns // 2 + 1]
-                new_data[:, n_columns // 2 - 1:-2] = \
-                    new_data[:, n_columns // 2 + 1:]
+            k = diff / dark_diff
+            temp_dark = dark * k
+            data -= midpt1
+            data -= temp_dark
 
-                new_data[:, -2:] = temp_column
+            header.add_history('Lateral glow removed using %s file' % dark)
+            prefix = 'g' + prefix
 
-                # Clean known bad columns and lines
-                if args.clean is True:
-                    new_data = clean_columns(new_data)
-                    new_data = clean_lines(new_data)
-                    header.add_history('Cleaned bad columns and lines.')
-                    prefix = 'c' + prefix
+        return data, header, prefix
 
-                # Writing file
-                header.add_history('Extensions joined using "sami_xjoin"')
-                path, filename = os.path.split(filename)
-                pyfits.writeto(os.path.join(path, prefix + filename), new_data,
-                               header, clobber=True)
+    @staticmethod
+    def set_verbose(verbose):
 
-            print("\n All done!")
+        if verbose:
+            log.basicConfig(level=log.INFO, format='%(message)s')
+        else:
+            log.basicConfig(level=log.WARNING, format='%(message)s')
+
+    @staticmethod
+    def remove_bad_columns_and_lines(data):
+
+        n_rows, n_columns = data.shape
+        temp_column = data[:, n_columns // 2 - 1:n_columns // 2 + 1]
+        data[:, n_columns // 2 - 1:-2] = \
+            data[:, n_columns // 2 + 1:]
+
+        data[:, -2:] = temp_column
+
+        return data
+
+    def clean_hot_columns_and_lines(self, data, header, prefix, clean):
+
+        if clean is True:
+            data = self.clean_columns(data)
+            data = self.clean_lines(data)
+            header.add_history('Cleaned bad columns and lines.')
+            prefix = 'c' + prefix
+
+        return data, header, prefix
 
 
-class cosmicsimage:
+# noinspection PyUnresolvedReferences
+class CosmicsImage:
     """
     Docstring copied from the original cosmics.py file, obtained from
     U{http://obswww.unige.ch/~tewes/cosmics_dot_py/}
@@ -333,8 +490,8 @@ class cosmicsimage:
         """
         stringlist = [
             "Input array : (%i, %i), %s" % (
-            self.rawarray.shape[0], self.rawarray.shape[1],
-            self.rawarray.dtype.name),
+                self.rawarray.shape[0], self.rawarray.shape[1],
+                self.rawarray.dtype.name),
             "Current cosmic ray mask : %i pixels" % np.sum(self.mask)
         ]
 
@@ -342,7 +499,7 @@ class cosmicsimage:
             stringlist.append(
                 "Using a previously subtracted sky level of %f" % self.pssl)
 
-        if self.satstars != None:
+        if self.satstars is not None:
             stringlist.append(
                 "Saturated star mask : %i pixels" % np.sum(self.satstars))
 
@@ -354,11 +511,10 @@ class cosmicsimage:
         containing their positions. This is made on purpose for visualizations a
          la f2n.drawstarslist, but could be useful anyway.
         """
-        if verbose == None:
+        if verbose is None:
             verbose = self.verbose
         if verbose:
-            print
-            "Labeling mask pixels ..."
+            log.debug("Labeling mask pixels ...")
         # We morphologicaly dilate the mask to generously connect "sparse"
         # cosmics :
         # dilstruct = np.ones((5,5))
@@ -385,16 +541,15 @@ class cosmicsimage:
         centers = [[(tup[0].start + tup[0].stop) / 2.0,
                     (tup[1].start + tup[1].stop) / 2.0] for tup in
                    slicecouplelist]
-        # We also want to know how many pixels where affected by each cosmic ray.
-        # Why ? Dunno... it's fun and available in scipy :-)
+        # We also want to know how many pixels where affected by each cosmic
+        # ray. # Why ? Dunno... it's fun and available in scipy :-)
         sizes = ndimage.measurements.sum(self.mask.ravel(), labels.ravel(),
                                          np.arange(1, n + 1, 1))
         retdictlist = [{"name": "%i" % size, "x": center[0], "y": center[1]} for
                        (size, center) in zip(sizes, centers)]
 
         if verbose:
-            print
-            "Labeling done"
+            log.debug("Labeling done")
 
         return retdictlist
 
@@ -420,33 +575,32 @@ class cosmicsimage:
                                                          origin=0,
                                                          brute_force=False)
         else:
-            dismask = self.mask.copy()
+            dilmask = self.mask.copy()
 
         return dilmask
 
     def clean(self, mask=None, verbose=None):
         """
         Given the mask, we replace the actual problematic pixels with the masked
-         5x5 median value. This mimics what is done in L.A.Cosmic, but it's a bit
-         harder to do in python, as there is no readymade masked median. So for
-         now we do a loop...
+        5x5 median value. This mimics what is done in L.A.Cosmic, but it's a
+        bit harder to do in python, as there is no readymade masked median. So
+        for now we do a loop...
 
         Saturated stars, if calculated, are also masked : they are not
-         "cleaned", but their pixels are not used for the interpolation.
+        "cleaned", but their pixels are not used for the interpolation.
 
         We will directly change self.cleanimage. Instead of using the self.mask,
-         you can supply your own mask as argument. This might be useful to apply
-         this cleaning function iteratively. But for the true L.A.Cosmic, we
-         don't use this, i.e. we use the full mask at each iteration.
+        you can supply your own mask as argument. This might be useful to apply
+        this cleaning function iteratively. But for the true L.A.Cosmic, we
+        don't use this, i.e. we use the full mask at each iteration.
         """
-        if verbose == None:
+        if verbose is None:
             verbose = self.verbose
-        if mask == None:
+        if mask is None:
             mask = self.mask
 
         if verbose:
-            print
-            "Cleaning cosmic affected pixels ..."
+            log.debug("Cleaning cosmic affected pixels ...")
 
         # So... mask is a 2D array containing False and True, where True means
         # "here is a cosmic".
@@ -469,16 +623,19 @@ class cosmicsimage:
         # The medians will be evaluated in this padarray, skipping the np.Inf.
         # Now in this copy called padarray, we also put the saturated stars to
         # np.Inf, if available :
-        if self.satstars != None:
+        if self.satstars is not None:
             padarray[2:w + 2, 2:h + 2][self.satstars] = np.Inf
         # Viva python, I tested this one, it works...
 
         # A loop through every cosmic pixel :
         for cosmicpos in cosmicindices:
+
             x = cosmicpos[0]
             y = cosmicpos[1]
-            cutout = padarray[x:x + 5,
-                     y:y + 5].ravel()  # remember the shift due to the padding !
+
+            # remember the shift due to the padding !
+            cutout = padarray[x:x + 5, :y + 5].ravel()
+
             # print cutout
             # Now we have our 25 pixels, some of them are np.Inf, and we want to
             #  take the median
@@ -493,8 +650,7 @@ class cosmicsimage:
             else:
                 # i.e. no good pixels : Shit, a huge cosmic, we will have to
                 # improvise ...
-                print
-                "OH NO, I HAVE A HUUUUUUUGE COSMIC !!!!!"
+                log.debug("OH NO, I HAVE A HUUUUUUUGE COSMIC !!!!!")
                 replacementvalue = self.guessbackgroundlevel()
 
             # We update the cleanarray,
@@ -504,31 +660,31 @@ class cosmicsimage:
 
         # That's it.
         if verbose:
-            print
-            "Cleaning done"
+            log.debug("Cleaning done")
 
         # FYI, that's how the LACosmic cleaning looks in iraf :
+        # noinspection PyPep8
         """
-        imarith(outmask,"+",finalsel,outmask)
-        imreplace(outmask,1,lower=1,upper=INDEF) # ok so outmask = 1 are the cosmics
-        imcalc(outmask,inputmask,"(1.-10000.*im1)",verb-)
-        imarith(oldoutput,"*",inputmask,inputmask)
-        median(inputmask,med5,5,5,zloreject=-9999,zhi=INDEF,verb-)
-        imarith(outmask,"*",med5,med5)
-        if (i>1) imdel(output)
-        imcalc(oldoutput//","//outmask//","//med5,output,"(1.-im2)*im1+im3",verb-)
+                imarith(outmask,"+",finalsel,outmask)
+                imreplace(outmask,1,lower=1,upper=INDEF) # ok so outmask = 1 are the cosmics
+                imcalc(outmask,inputmask,"(1.-10000.*im1)",verb-)
+                imarith(oldoutput,"*",inputmask,inputmask)
+                median(inputmask,med5,5,5,zloreject=-9999,zhi=INDEF,verb-)
+                imarith(outmask,"*",med5,med5)
+                if (i>1) imdel(output)
+                imcalc(oldoutput//","//outmask//","//med5,output,"(1.-im2)*im1+im3",verb-)
 
-        # =
+                # =
 
-        merging to full mask
-        inputmask = 1.0 - 10000.0 * finalsel # So this is 1.0, but cosmics are very negative
-        inputmask = oldoutput * inputmask # orig image, with very negative cosmics
-        med5 = median of inputmask, but rejecting these negative cosmics
-        # i dunno how to do this in python -> had to do the loop
-        med5 = finalsel * med5 # we keep only the cosmics of this median
-        # actual replacement :
-        output = (1.0 - outmask)*oldoutput + med5 # ok
-        """
+                merging to full mask
+                inputmask = 1.0 - 10000.0 * finalsel # So this is 1.0, but cosmics are very negative
+                inputmask = oldoutput * inputmask # orig image, with very negative cosmics
+                med5 = median of inputmask, but rejecting these negative cosmics
+                # i dunno how to do this in python -> had to do the loop
+                med5 = finalsel * med5 # we keep only the cosmics of this median
+                # actual replacement :
+                output = (1.0 - outmask)*oldoutput + med5 # ok
+                """
 
     def findsatstars(self, verbose=None):
         """
@@ -536,13 +692,12 @@ class cosmicsimage:
         result as a mask in self.satstars. This can then be used to avoid these
         regions in cosmic detection and cleaning procedures. Slow ...
         """
-        if verbose == None:
+        if verbose is None:
             verbose = self.verbose
         if verbose:
-            print
-            "Detecting saturated stars ..."
-        # DETECTION
+            log.debug("Detecting saturated stars ...")
 
+        # DETECTION
         satpixels = self.rawarray > self.satlevel  # the candidate pixels
 
         # We build a smoothed version of the image to look for large stars and
@@ -554,8 +709,7 @@ class cosmicsimage:
         satstarscenters = np.logical_and(largestruct, satpixels)
 
         if verbose:
-            print
-            "Building mask of saturated stars ..."
+            print("Building mask of saturated stars ...")
 
         # BUILDING THE MASK
         # The subtility is that we want to include all saturated pixels
@@ -576,14 +730,12 @@ class cosmicsimage:
                                                           brute_force=False)
         # It turns out it's better to think large and do 2 iterations...
 
-
         # We label these :
         (dilsatlabels, nsat) = ndimage.measurements.label(dilsatpixels)
         # tofits(dilsatlabels, "test.fits")
 
         if verbose:
-            print
-            "We have %i saturated stars." % nsat
+            log.debug("We have %i saturated stars." % nsat)
 
         # The ouput, False for now :
         outmask = np.zeros(self.rawarray.shape)
@@ -600,20 +752,19 @@ class cosmicsimage:
         self.satstars = np.cast['bool'](outmask)
 
         if verbose:
-            print
-            "Mask of saturated stars done"
+            log.debug("Mask of saturated stars done")
 
     def getsatstars(self, verbose=None):
         """
         Returns the mask of saturated stars after finding them if not yet done.
         Intended mainly for external use.
         """
-        if verbose == None:
+        if verbose is None:
             verbose = self.verbose
         if not self.satlevel > 0:
             raise (RuntimeError,
                    "Cannot determine satstars : you gave satlevel <= 0 !")
-        if self.satstars == None:
+        if self.satstars is None:
             self.findsatstars(verbose=verbose)
         return self.satstars
 
@@ -637,7 +788,7 @@ class cosmicsimage:
         Estimates the background level. This could be used to fill pixels in
         large cosmics.
         """
-        if self.backgroundlevel == None:
+        if self.backgroundlevel is None:
             self.backgroundlevel = np.median(self.rawarray.ravel())
         return self.backgroundlevel
 
@@ -661,11 +812,11 @@ class cosmicsimage:
 
         """
 
-        if verbose == None:
+        if verbose is None:
             verbose = self.verbose
 
         if verbose:
-            print("Convolving image with Laplacian kernel ...")
+            log.debug("Convolving image with Laplacian kernel ...")
 
         # We subsample, convolve, clip negative values, and rebin to original
         # size
@@ -678,7 +829,7 @@ class cosmicsimage:
         lplus = rebin2x2(cliped)
 
         if verbose:
-            print("Creating noise model ...")
+            log.debug("Creating noise model ...")
 
         # We build a custom noise map, so to compare the laplacian to
         m5 = ndimage.filters.median_filter(self.cleanarray, size=5,
@@ -689,7 +840,7 @@ class cosmicsimage:
             self.gain * m5clipped + self.readnoise * self.readnoise)
 
         if verbose:
-            print("Calculating Laplacian signal to noise ratio ...")
+            log.debug("Calculating Laplacian signal to noise ratio ...")
 
         # Laplacian signal to noise ratio :
         s = lplus / (2.0 * noise)  # the 2.0 is from the 2x2 subsampling
@@ -699,49 +850,47 @@ class cosmicsimage:
         sp = s - ndimage.filters.median_filter(s, size=5, mode='mirror')
 
         if verbose:
-            print("Selecting candidate cosmic rays ...")
+            log.debug("Selecting candidate cosmic rays ...")
 
         # Candidate cosmic rays (this will include stars + HII regions)
         candidates = sp > self.sigclip
         nbcandidates = np.sum(candidates)
 
         if verbose:
-            print
-            "  %5i candidate pixels" % nbcandidates
+            log.debug("  %5i candidate pixels" % nbcandidates)
 
-        # At this stage we use the saturated stars to mask the candidates, if available :
-        if self.satstars != None:
+        # At this stage we use the saturated stars to mask the candidates, if
+        # available :
+        if self.satstars is not None:
             if verbose:
-                print
-                "Masking saturated stars ..."
+                log.debug("Masking saturated stars ...")
             candidates = np.logical_and(np.logical_not(self.satstars),
                                         candidates)
             nbcandidates = np.sum(candidates)
 
             if verbose:
-                print
-                "  %5i candidate pixels not part of saturated stars" % nbcandidates
+                log.debug("  %5i candidate pixels not part of saturated stars" %
+                          nbcandidates)
 
         if verbose:
-            print
-            "Building fine structure image ..."
+            log.debug("Building fine structure image ...")
 
         # We build the fine structure image :
         m3 = ndimage.filters.median_filter(self.cleanarray, size=3,
                                            mode='mirror')
         m37 = ndimage.filters.median_filter(m3, size=7, mode='mirror')
         f = m3 - m37
-        # In the article that's it, but in lacosmic.cl f is divided by the noise...
-        # Ok I understand why, it depends on if you use sp/f or L+/f as criterion.
-        # There are some differences between the article and the iraf implementation.
-        # So I will stick to the iraf implementation.
-        f = f / noise
-        f = f.clip(
-            min=0.01)  # as we will divide by f. like in the iraf version.
+        # In the article that's it, but in lacosmic.cl f is divided by the
+        # noise...
+        # Ok I understand why, it depends on if you use sp/f or L+/f as
+        # criterion. There are some differences between the article and the iraf
+        # implementation. So I will stick to the iraf implementation.
+        f /= noise
+        # as we will divide by f. like in the iraf version.
+        f = f.clip(min=0.01)
 
         if verbose:
-            print
-            "Removing suspected compact bright objects ..."
+            log.debug("Removing suspected compact bright objects ...")
 
         # Now we have our better selection of cosmics :
         cosmics = np.logical_and(candidates, sp / f > self.objlim)
@@ -750,25 +899,27 @@ class cosmicsimage:
         nbcosmics = np.sum(cosmics)
 
         if verbose:
-            print
-            "  %5i remaining candidate pixels" % nbcosmics
+            log.debug("  %5i remaining candidate pixels" % nbcosmics)
 
-        # What follows is a special treatment for neighbors, with more relaxed constains.
+        # What follows is a special treatment for neighbors, with more relaxed
+        # constains.
 
         if verbose:
-            print
-            "Finding neighboring pixels affected by cosmic rays ..."
+            log.debug("Finding neighboring pixels affected by cosmic rays ...")
 
-        # We grow these cosmics a first time to determine the immediate neighborhod  :
+        # We grow these cosmics a first time to determine the immediate
+        # neighborhod  :
         growcosmics = np.cast['bool'](
             signal.convolve2d(np.cast['float32'](cosmics), growkernel,
                               mode="same", boundary="symm"))
 
         # From this grown set, we keep those that have sp > sigmalim
-        # so obviously not requiring sp/f > objlim, otherwise it would be pointless
+        # so obviously not requiring sp/f > objlim, otherwise it would be
+        # pointless
         growcosmics = np.logical_and(sp > self.sigclip, growcosmics)
 
-        # Now we repeat this procedure, but lower the detection limit to sigmalimlow :
+        # Now we repeat this procedure, but lower the detection limit to
+        # sigmalimlow :
 
         finalsel = np.cast['bool'](
             signal.convolve2d(np.cast['float32'](growcosmics), growkernel,
@@ -776,21 +927,19 @@ class cosmicsimage:
         finalsel = np.logical_and(sp > self.sigcliplow, finalsel)
 
         # Again, we have to kick out pixels on saturated stars :
-        if self.satstars != None:
+        if self.satstars is not None:
             if verbose:
-                print
-                "Masking saturated stars ..."
+                log.debug("Masking saturated stars ...")
             finalsel = np.logical_and(np.logical_not(self.satstars), finalsel)
 
         nbfinal = np.sum(finalsel)
 
         if verbose:
-            print
-            "  %5i pixels detected as cosmics" % nbfinal
+            log.debug("  %5i pixels detected as cosmics" % nbfinal)
 
         # Now the replacement of the cosmics...
-        # we outsource this to the function clean(), as for some purposes the cleaning might not even be needed.
-        # Easy way without masking would be :
+        # we outsource this to the function clean(), as for some purposes the
+        # cleaning might not even be needed. Easy way without masking would be:
         # self.cleanarray[finalsel] = m5[finalsel]
 
         # We find how many cosmics are not yet known :
@@ -806,50 +955,55 @@ class cosmicsimage:
         return {"niter": nbfinal, "nnew": nbnew, "itermask": finalsel,
                 "newmask": newmask}
 
-    def findholes(self, verbose=True):
+    # noinspection PyUnusedLocal
+    @staticmethod
+    def findholes(verbose=True):
         """
         Detects "negative cosmics" in the cleanarray and adds them to the mask.
         This is not working yet.
         """
+        # TODO Implement this
         pass
 
+        # noinspection PyPep8
         """
-        if verbose == None:
-            verbose = self.verbose
+                if verbose == None:
+                    verbose = self.verbose
 
-        if verbose :
-            print "Finding holes ..."
+                if verbose :
+                    print "Finding holes ..."
 
-        m3 = ndimage.filters.median_filter(self.cleanarray, size=3, mode='mirror')
-        h = (m3 - self.cleanarray).clip(min=0.0)
+                m3 = ndimage.filters.median_filter(self.cleanarray, size=3, mode='mirror')
+                h = (m3 - self.cleanarray).clip(min=0.0)
 
-        tofits("h.fits", h)
-        sys.exit()
+                tofits("h.fits", h)
+                sys.exit()
 
-        # The holes are the peaks in this image that are not stars
+                # The holes are the peaks in this image that are not stars
 
-        #holes = h > 300
+                #holes = h > 300
+                """
+        # noinspection PyPep8
         """
-        """
-        subsam = subsample(self.cleanarray)
-        conved = -signal.convolve2d(subsam, laplkernel, mode="same", boundary="symm")
-        cliped = conved.clip(min=0.0)
-        lplus = rebin2x2(conved)
+                subsam = subsample(self.cleanarray)
+                conved = -signal.convolve2d(subsam, laplkernel, mode="same", boundary="symm")
+                cliped = conved.clip(min=0.0)
+                lplus = rebin2x2(conved)
 
-        tofits("lplus.fits", lplus)
+                tofits("lplus.fits", lplus)
 
-         m5 = ndimage.filters.median_filter(self.cleanarray, size=5, mode='mirror')
-         m5clipped = m5.clip(min=0.00001)
-         noise = (1.0/self.gain) * np.sqrt(self.gain*m5clipped + self.readnoise*self.readnoise)
+                 m5 = ndimage.filters.median_filter(self.cleanarray, size=5, mode='mirror')
+                 m5clipped = m5.clip(min=0.00001)
+                 noise = (1.0/self.gain) * np.sqrt(self.gain*m5clipped + self.readnoise*self.readnoise)
 
-         s = lplus / (2.0 * noise) # the 2.0 is from the 2x2 subsampling
-         # This s is called sigmap in the original lacosmic.cl
+                 s = lplus / (2.0 * noise) # the 2.0 is from the 2x2 subsampling
+                 # This s is called sigmap in the original lacosmic.cl
 
-         # We remove the large structures (s prime) :
-         sp = s - ndimage.filters.median_filter(s, size=5, mode='mirror')
+                 # We remove the large structures (s prime) :
+                 sp = s - ndimage.filters.median_filter(s, size=5, mode='mirror')
 
-         holes = sp > self.sigclip
-        """
+                 holes = sp > self.sigclip
+                """
         """
         # We have to kick out pixels on saturated stars :
         if self.satstars != None:
@@ -868,26 +1022,26 @@ class cosmicsimage:
         """
         Full artillery :-)
             - Find saturated stars
-            - Run maxiter L.A.Cosmic iterations (stops if no more cosmics are found)
+            - Run maxiter L.A.Cosmic iterations (stops if no more cosmics are
+              found)
 
         Stops if no cosmics are found or if maxiter is reached.
         """
 
-        if self.satlevel > 0 and self.satstars == None:
+        if self.satlevel > 0 and self.satstars is None:
             self.findsatstars(verbose=True)
 
-        print
-        "Starting %i L.A.Cosmic iterations ..." % maxiter
+        log.debug("Starting %i L.A.Cosmic iterations ..." % maxiter)
         for i in range(1, maxiter + 1):
-            print
-            "Iteration %i" % i
+            log.debug("Iteration %i" % i)
 
             iterres = self.lacosmiciteration(verbose=verbose)
-            print
-            "%i cosmic pixels (%i new)" % (iterres["niter"], iterres["nnew"])
+            log.debug("%i cosmic pixels (%i new)" %
+                      (iterres["niter"], iterres["nnew"]))
 
-            # self.clean(mask = iterres["mask"]) # No, we want clean to operate on really clean pixels only !
-            # Thus we always apply it on the full mask, as lacosmic does :
+            # self.clean(mask = iterres["mask"]) # No, we want clean to operate
+            # on really clean pixels only! Thus we always apply it on the full
+            # mask, as lacosmic does :
             self.clean(verbose=verbose)
             # But note that for huge cosmics, one might want to revise this.
             # Thats why I added a feature to skip saturated stars !
@@ -896,80 +1050,26 @@ class cosmicsimage:
                 break
 
 
-
-def clean_column(_data, x0, y0, yf, n=5):
-    t1 = _data[y0:yf, x0 - n:x0]
-    t2 = _data[y0:yf, x0 + 1:x0 + n]
-    t = np.hstack((t1, t2))
-    _data[y0:yf, x0] = np.median(t)
-    return _data
-
-
-def clean_columns(_data):
-    bad_columns = [
-        [167, 0, 512],
-        [476, 0, 513],
-        [602, 0, 513],
-        [671, 0, 513],
-        [810, 0, 513],
-        [918, 0, 513],
-        [917, 0, 513],
-        [213, 513, 1024]
-    ]
-
-    for column in bad_columns:
-        x0 = column[0]
-        y0 = column[1]
-        yf = column[2]
-        _data = clean_column(_data, x0, y0, yf)
-    return _data
-
-
-def clean_line(_data, x0, xf, y, n=5):
-    t1 = _data[y - n:y, x0:xf]
-    t2 = _data[y + 1:y + n, x0:xf]
-    t = np.vstack((t1, t2))
-    _data[y, x0:xf] = np.median(t)
-    return _data
-
-
-def clean_lines(_data):
-    bad_lines = [
-        [214, 239, 688],
-        [477, 516, 490],
-        [387, 429, 455],
-        [574, 603, 494],
-        [574, 603, 493],
-        [640, 672, 388],
-        [604, 671, 388]
-    ]
-
-    for line in bad_lines:
-        x0 = line[0]
-        xf = line[1]
-        y = line[2]
-        _data = clean_line(_data, x0, xf, y)
-    return _data
-
-
+# noinspection PyUnusedLocal
 def rebin(a, newshape):
     """
     Auxiliary function to rebin an ndarray a.
     U{http://www.scipy.org/Cookbook/Rebinning}
 
-    >>> a=rand(6,4); b=rebin(a,(3,2))
+    a=rand(6,4); b=rebin(a,(3,2))
     """
 
     shape = a.shape
-    lenShape = len(shape)
+    len_shape = len(shape)
     factor = np.asarray(shape) / np.asarray(newshape)
     # print factor
-    evList = ['a.reshape('] + \
-             ['newshape[%d],factor[%d],' % (i, i) for i in xrange(lenShape)] + \
-             [')'] + ['.sum(%d)' % (i + 1) for i in xrange(lenShape)] + \
-             ['/factor[%d]' % i for i in xrange(lenShape)]
+    # noinspection PyPep8,PyPep8,PyPep8
+    ev_list = ['a.reshape('] + \
+              ['newshape[%d],factor[%d],' % (i, i) for i in xrange(len_shape)] + \
+              [')'] + ['.sum(%d)' % (i + 1) for i in xrange(len_shape)] + \
+              ['/factor[%d]' % i for i in xrange(len_shape)]
 
-    return eval(''.join(evList))
+    return eval(''.join(ev_list))
 
 
 def rebin2x2(a):
@@ -982,27 +1082,6 @@ def rebin2x2(a):
         raise (RuntimeError, "I want even image shapes !")
 
     return rebin(a, inshape / 2)
-
-
-def remove_glows(_data, _dark):
-    _dark = clean_columns(_dark)
-    _dark = clean_lines(_dark)
-
-    dark_midpt1 = np.median(_dark[539:589, 999:1009])
-    dark_midpt2 = np.median(_dark[449:506, 975:1019])
-    dark_diff = dark_midpt2 - dark_midpt1
-    _dark -= dark_midpt1
-
-    midpt1 = np.median(_data[539:589, 999:1009])
-    midpt2 = np.median(_data[449:506, 975:1019])
-    diff = midpt2 - midpt1
-
-    k = diff / dark_diff
-    temp_dark = _dark * k
-    _data -= midpt1
-    _data -= temp_dark
-
-    return _data
 
 
 def subsample(a):
@@ -1074,6 +1153,9 @@ if __name__ == '__main__':
     parser.add_argument('files', metavar='files', type=str, nargs='+',
                         help="input filenames.")
 
-    args = parser.parse_args()
-
-    SAMI_XJoin(args.__dict__)
+    pargs = parser.parse_args()
+    SAMI_XJoin(
+        pargs.files, bias_file=pargs.bias, clean=pargs.clean,
+        dark_file=pargs.dark, flat_file=pargs.flat, glow_file=pargs.glow,
+        time=pargs.exptime, verbose=not pargs.quiet
+    )
