@@ -62,10 +62,11 @@ dilstruct[4, 4] = 0
 # noinspection PyPep8Naming
 class SAMI_XJoin:
     def __init__(self, list_of_files, bias_file=None, clean=False,
-                 cosmic_rays=False, dark_file=None, flat_file=None,
-                 glow_file=None, time=False, verbose=False):
+                 cosmic_rays=False, dark_file=None, debug=False,
+                 flat_file=None, glow_file=None, time=False, verbose=False):
 
         self.set_verbose(verbose)
+        self.set_debug(debug)
         self.main(list_of_files, bias_file=bias_file, clean=clean,
                   cosmic_rays=cosmic_rays, dark_file=dark_file,
                   flat_file=flat_file, glow_file=glow_file, time=time)
@@ -181,6 +182,7 @@ class SAMI_XJoin:
 
         fits_file = pyfits.open(filename)
         h0 = fits_file[0].header
+        # noinspection PyUnusedLocal
         h1 = fits_file[1].header
 
         # TODO - Multiple header inheritance.
@@ -213,7 +215,6 @@ class SAMI_XJoin:
 
         # Process each extension
         for i in range(1, 5):
-
             tx, ty = str2pixels(fits_file[i].header['TRIMSEC'])
             bx, by = str2pixels(fits_file[i].header['BIASSEC'])
 
@@ -239,8 +240,8 @@ class SAMI_XJoin:
         return new_data
 
     def main(self, list_of_files, bias_file=None, clean=False,
-             cosmic_rays=False, dark_file=None, flat_file=None, glow_file=None,
-             time=False):
+             cosmic_rays=False, dark_file=None, flat_file=None,
+             glow_file=None, time=False):
 
         self.print_header()
         log.info('Processing data')
@@ -267,7 +268,7 @@ class SAMI_XJoin:
 
             # Remove cosmic rays and hot pixels
             data, header, prefix = self.remove_cosmic_rays(
-                data, header, prefix, glow_file
+                data, header, prefix, cosmic_rays
             )
 
             # Remove lateral glows
@@ -286,7 +287,7 @@ class SAMI_XJoin:
             )
 
             # Removing bad column and line
-            data = self.remove_bad_columns_and_lines(data)
+            data = self.remove_central_bad_columns(data)
 
             # Clean known bad columns and lines
             data, header, prefix = self.clean_hot_columns_and_lines(
@@ -320,23 +321,22 @@ class SAMI_XJoin:
 
             data = c.cleanarray.transpose()
 
-            header.add_history('Cosmic rays and hot pixels removed using LACosmic')
+            header.add_history(
+                'Cosmic rays and hot pixels removed using LACosmic')
             prefix += 'r'
 
         return data, header, prefix
 
-
     def remove_glows(self, data, header, prefix, glow_file):
 
         if glow_file is not None:
-
             # Create four different regions.
             regions = [
                 [np.median(data[539:589, 6:56]),  # Top Left
                  np.median(data[539:589, 975:1019])],  # Top Right
                 [np.median(data[449:506, 6:56]),  # Bottom Left
                  np.median(data[449:506, 975:1019])]  # Bottom Right
-                       ]
+            ]
             min_std_region = np.argmin(regions) % 2
             # print(min_std_region)
 
@@ -354,7 +354,7 @@ class SAMI_XJoin:
                  np.median(dark[539:589, 975:1019])],  # Top Right
                 [np.median(dark[449:506, 6:56]),  # Bottom Left
                  np.median(dark[449:506, 975:1019])]  # Bottom Right
-                       ]
+            ]
 
             dark_midpt1 = dark_regions[0][min_std_region]
             dark_midpt2 = dark_regions[1][min_std_region]
@@ -375,6 +375,12 @@ class SAMI_XJoin:
         return data, header, prefix
 
     @staticmethod
+    def set_debug(debug):
+
+        if debug:
+            log.basicConfig(level=log.DEBUG, format='%(message)s')
+
+    @staticmethod
     def set_verbose(verbose):
 
         if verbose:
@@ -383,13 +389,17 @@ class SAMI_XJoin:
             log.basicConfig(level=log.WARNING, format='%(message)s')
 
     @staticmethod
-    def remove_bad_columns_and_lines(data):
+    def remove_central_bad_columns(data):
 
         n_rows, n_columns = data.shape
-        temp_column = data[:, n_columns // 2 - 1:n_columns // 2 + 1]
-        data[:, n_columns // 2 - 1:-2] = \
-            data[:, n_columns // 2 + 1:]
 
+        # Copy the central bad columns to a temp array
+        temp_column = data[:, n_columns // 2 - 1:n_columns // 2 + 1]
+
+        # Shift the whole image by two columns
+        data[:, n_columns // 2 - 1:-2] = data[:, n_columns // 2 + 1:]
+
+        # Copy the bad array in the end (right) of the image).
         data[:, -2:] = temp_column
 
         return data
@@ -474,8 +484,7 @@ class CosmicsImage:
     """
 
     def __init__(self, rawarray, pssl=0.0, gain=2.2, readnoise=10.0,
-                 sigclip=5.0, sigfrac=0.3, objlim=5.0, satlevel=50000.0,
-                 verbose=True):
+                 sigclip=5.0, sigfrac=0.3, objlim=5.0, satlevel=50000.0):
         """
 
         sigclip : increase this if you detect cosmics where there are none.
@@ -526,8 +535,6 @@ class CosmicsImage:
         self.sigcliplow = sigclip * sigfrac
         self.satlevel = satlevel
 
-        self.verbose = verbose
-
         self.pssl = pssl
 
         self.backgroundlevel = None  # only calculated and used if required.
@@ -557,16 +564,14 @@ class CosmicsImage:
 
         return "\n".join(stringlist)
 
-    def labelmask(self, verbose=None):
+    def labelmask(self):
         """
         Finds and labels the cosmic "islands" and returns a list of dicts
         containing their positions. This is made on purpose for visualizations a
          la f2n.drawstarslist, but could be useful anyway.
         """
-        if verbose is None:
-            verbose = self.verbose
-        if verbose:
-            log.debug("Labeling mask pixels ...")
+
+        log.debug("Labeling mask pixels ...")
         # We morphologicaly dilate the mask to generously connect "sparse"
         # cosmics :
         # dilstruct = np.ones((5,5))
@@ -600,8 +605,7 @@ class CosmicsImage:
         retdictlist = [{"name": "%i" % size, "x": center[0], "y": center[1]} for
                        (size, center) in zip(sizes, centers)]
 
-        if verbose:
-            log.debug("Labeling done")
+        log.debug("Labeling done")
 
         return retdictlist
 
@@ -631,7 +635,7 @@ class CosmicsImage:
 
         return dilmask
 
-    def clean(self, mask=None, verbose=None):
+    def clean(self, mask=None):
         """
         Given the mask, we replace the actual problematic pixels with the masked
         5x5 median value. This mimics what is done in L.A.Cosmic, but it's a
@@ -646,13 +650,11 @@ class CosmicsImage:
         this cleaning function iteratively. But for the true L.A.Cosmic, we
         don't use this, i.e. we use the full mask at each iteration.
         """
-        if verbose is None:
-            verbose = self.verbose
+
         if mask is None:
             mask = self.mask
 
-        if verbose:
-            log.debug("Cleaning cosmic affected pixels ...")
+        log.debug("Cleaning cosmic affected pixels ...")
 
         # So... mask is a 2D array containing False and True, where True means
         # "here is a cosmic".
@@ -711,8 +713,7 @@ class CosmicsImage:
             self.cleanarray[x, y] = replacementvalue
 
         # That's it.
-        if verbose:
-            log.debug("Cleaning done")
+        log.debug("Cleaning done")
 
         # FYI, that's how the LACosmic cleaning looks in iraf :
         # noinspection PyPep8
@@ -738,16 +739,13 @@ class CosmicsImage:
                 output = (1.0 - outmask)*oldoutput + med5 # ok
                 """
 
-    def findsatstars(self, verbose=None):
+    def findsatstars(self):
         """
         Uses the satlevel to find saturated stars (not cosmics !), and puts the
         result as a mask in self.satstars. This can then be used to avoid these
         regions in cosmic detection and cleaning procedures. Slow ...
         """
-        if verbose is None:
-            verbose = self.verbose
-        if verbose:
-            log.debug("Detecting saturated stars ...")
+        log.debug("Detecting saturated stars ...")
 
         # DETECTION
         satpixels = self.rawarray > self.satlevel  # the candidate pixels
@@ -760,8 +758,7 @@ class CosmicsImage:
         # The rough locations of saturated stars are now :
         satstarscenters = np.logical_and(largestruct, satpixels)
 
-        if verbose:
-            print("Building mask of saturated stars ...")
+        log.debug("Building mask of saturated stars ...")
 
         # BUILDING THE MASK
         # The subtility is that we want to include all saturated pixels
@@ -786,8 +783,7 @@ class CosmicsImage:
         (dilsatlabels, nsat) = ndimage.measurements.label(dilsatpixels)
         # tofits(dilsatlabels, "test.fits")
 
-        if verbose:
-            log.debug("We have %i saturated stars." % nsat)
+        log.debug("We have %i saturated stars." % nsat)
 
         # The ouput, False for now :
         outmask = np.zeros(self.rawarray.shape)
@@ -803,21 +799,18 @@ class CosmicsImage:
 
         self.satstars = np.cast['bool'](outmask)
 
-        if verbose:
-            log.debug("Mask of saturated stars done")
+        log.debug("Mask of saturated stars done")
 
-    def getsatstars(self, verbose=None):
+    def getsatstars(self):
         """
         Returns the mask of saturated stars after finding them if not yet done.
         Intended mainly for external use.
         """
-        if verbose is None:
-            verbose = self.verbose
         if not self.satlevel > 0:
             raise RuntimeError("Cannot determine satstars: "
                                "you gave satlevel <= 0 !")
         if self.satstars is None:
-            self.findsatstars(verbose=verbose)
+            self.findsatstars()
         return self.satstars
 
     def getmask(self):
@@ -844,7 +837,7 @@ class CosmicsImage:
             self.backgroundlevel = np.median(self.rawarray.ravel())
         return self.backgroundlevel
 
-    def lacosmiciteration(self, verbose=None):
+    def lacosmiciteration(self):
         """
         Performs one iteration of the L.A.Cosmic algorithm. It operates on
         self.cleanarray, and afterwards updates self.mask by adding the newly
@@ -864,11 +857,7 @@ class CosmicsImage:
 
         """
 
-        if verbose is None:
-            verbose = self.verbose
-
-        if verbose:
-            log.debug("Convolving image with Laplacian kernel ...")
+        log.debug("Convolving image with Laplacian kernel ...")
 
         # We subsample, convolve, clip negative values, and rebin to original
         # size
@@ -880,8 +869,7 @@ class CosmicsImage:
         # holes as well ...
         lplus = rebin2x2(cliped)
 
-        if verbose:
-            log.debug("Creating noise model ...")
+        log.debug("Creating noise model ...")
 
         # We build a custom noise map, so to compare the laplacian to
         m5 = ndimage.filters.median_filter(self.cleanarray, size=5,
@@ -891,8 +879,7 @@ class CosmicsImage:
         noise = (1.0 / self.gain) * np.sqrt(
             self.gain * m5clipped + self.readnoise * self.readnoise)
 
-        if verbose:
-            log.debug("Calculating Laplacian signal to noise ratio ...")
+        log.debug("Calculating Laplacian signal to noise ratio ...")
 
         # Laplacian signal to noise ratio :
         s = lplus / (2.0 * noise)  # the 2.0 is from the 2x2 subsampling
@@ -901,31 +888,26 @@ class CosmicsImage:
         # We remove the large structures (s prime) :
         sp = s - ndimage.filters.median_filter(s, size=5, mode='mirror')
 
-        if verbose:
-            log.debug("Selecting candidate cosmic rays ...")
+        log.debug("Selecting candidate cosmic rays ...")
 
         # Candidate cosmic rays (this will include stars + HII regions)
         candidates = sp > self.sigclip
         nbcandidates = np.sum(candidates)
 
-        if verbose:
-            log.debug("  %5i candidate pixels" % nbcandidates)
+        log.debug("  %5i candidate pixels" % nbcandidates)
 
         # At this stage we use the saturated stars to mask the candidates, if
         # available :
         if self.satstars is not None:
-            if verbose:
-                log.debug("Masking saturated stars ...")
+            log.debug("Masking saturated stars ...")
             candidates = np.logical_and(np.logical_not(self.satstars),
                                         candidates)
             nbcandidates = np.sum(candidates)
 
-            if verbose:
-                log.debug("  %5i candidate pixels not part of saturated stars" %
-                          nbcandidates)
+            log.debug("  %5i candidate pixels not part of saturated stars" %
+                      nbcandidates)
 
-        if verbose:
-            log.debug("Building fine structure image ...")
+        log.debug("Building fine structure image ...")
 
         # We build the fine structure image :
         m3 = ndimage.filters.median_filter(self.cleanarray, size=3,
@@ -941,8 +923,7 @@ class CosmicsImage:
         # as we will divide by f. like in the iraf version.
         f = f.clip(min=0.01)
 
-        if verbose:
-            log.debug("Removing suspected compact bright objects ...")
+        log.debug("Removing suspected compact bright objects ...")
 
         # Now we have our better selection of cosmics :
         cosmics = np.logical_and(candidates, sp / f > self.objlim)
@@ -950,14 +931,12 @@ class CosmicsImage:
 
         nbcosmics = np.sum(cosmics)
 
-        if verbose:
-            log.debug("  %5i remaining candidate pixels" % nbcosmics)
+        log.debug("  %5i remaining candidate pixels" % nbcosmics)
 
         # What follows is a special treatment for neighbors, with more relaxed
         # constains.
 
-        if verbose:
-            log.debug("Finding neighboring pixels affected by cosmic rays ...")
+        log.debug("Finding neighboring pixels affected by cosmic rays ...")
 
         # We grow these cosmics a first time to determine the immediate
         # neighborhod  :
@@ -980,14 +959,12 @@ class CosmicsImage:
 
         # Again, we have to kick out pixels on saturated stars :
         if self.satstars is not None:
-            if verbose:
-                log.debug("Masking saturated stars ...")
+            log.debug("Masking saturated stars ...")
             finalsel = np.logical_and(np.logical_not(self.satstars), finalsel)
 
         nbfinal = np.sum(finalsel)
 
-        if verbose:
-            log.debug("  %5i pixels detected as cosmics" % nbfinal)
+        log.debug("  %5i pixels detected as cosmics" % nbfinal)
 
         # Now the replacement of the cosmics...
         # we outsource this to the function clean(), as for some purposes the
@@ -1009,7 +986,7 @@ class CosmicsImage:
 
     # noinspection PyUnusedLocal
     @staticmethod
-    def findholes(verbose=True):
+    def findholes():
         """
         Detects "negative cosmics" in the cleanarray and adds them to the mask.
         This is not working yet.
@@ -1070,7 +1047,7 @@ class CosmicsImage:
         self.mask = np.logical_or(self.mask, holes)
         """
 
-    def run(self, maxiter=4, verbose=False):
+    def run(self, maxiter=4):
         """
         Full artillery :-)
             - Find saturated stars
@@ -1081,20 +1058,20 @@ class CosmicsImage:
         """
 
         if self.satlevel > 0 and self.satstars is None:
-            self.findsatstars(verbose=True)
+            self.findsatstars()
 
         log.debug("Starting %i L.A.Cosmic iterations ..." % maxiter)
         for i in range(1, maxiter + 1):
             log.debug("Iteration %i" % i)
 
-            iterres = self.lacosmiciteration(verbose=verbose)
+            iterres = self.lacosmiciteration()
             log.debug("%i cosmic pixels (%i new)" %
                       (iterres["niter"], iterres["nnew"]))
 
             # self.clean(mask = iterres["mask"]) # No, we want clean to operate
             # on really clean pixels only! Thus we always apply it on the full
             # mask, as lacosmic does :
-            self.clean(verbose=verbose)
+            self.clean()
             # But note that for huge cosmics, one might want to revise this.
             # Thats why I added a feature to skip saturated stars !
 
@@ -1189,28 +1166,37 @@ if __name__ == '__main__':
 
     parser.add_argument('-b', '--bias', type=str, default=None,
                         help="Consider BIAS file for subtraction.")
-    parser.add_argument('-c', '--clean', action='store_true',
-                        help="Clean known bad columns and lines by taking the "
-                             "median value of their neighbours.")
+    # TODO Enable Clean Hot Columns and Lines
+    # parser.add_argument('-c', '--clean', action='store_true',
+    #                     help="Clean known bad columns and lines by taking the "
+    #                          "median value of their neighbours.")
     parser.add_argument('-d', '--dark', type=str, default=None,
                         help="Consider DARK file for subtraction.")
+    parser.add_argument('-D', '--debug', action='store_true',
+                        help="Turn on DEBUG mode (overwrite quiet mode).")
     parser.add_argument('-f', '--flat', type=str, default=None,
                         help="Consider FLAT file for division.")
     parser.add_argument('-g', '--glow', type=str, default=None,
                         help="Consider DARK file to correct lateral glows.")
     parser.add_argument('-q', '--quiet', action='store_true',
                         help="Run quietly.")
-    parser.add_argument('-r', '--rays', action='store_true',
-                        help='Use LACosmic.py to remove cosmic rays and hot '
-                             'pixels.')
+    # TODO Enable Cosmic Ray Removals
+    # parser.add_argument('-r', '--rays', action='store_true',
+    #                     help='Use LACosmic.py to remove cosmic rays and hot '
+    #                          'pixels.')
     parser.add_argument('-t', '--exptime', action='store_true',
                         help="Divide by exposure time.")
     parser.add_argument('files', metavar='files', type=str, nargs='+',
                         help="input filenames.")
 
     pargs = parser.parse_args()
-    SAMI_XJoin(
-        pargs.files, bias_file=pargs.bias, clean=pargs.clean,
-        cosmic_rays=pargs.rays, dark_file=pargs.dark, flat_file=pargs.flat,
-        glow_file=pargs.glow, time=pargs.exptime, verbose=not pargs.quiet
-    )
+    # SAMI_XJoin(
+    #     pargs.files, bias_file=pargs.bias, clean=pargs.clean,
+    #     cosmic_rays=pargs.rays, dark_file=pargs.dark, debug=pargs.debug,
+    #     flat_file=pargs.flat, glow_file=pargs.glow, time=pargs.exptime,
+    #     verbose=not pargs.quiet
+    # )
+
+    SAMI_XJoin(pargs.files, bias_file=pargs.bias, dark_file=pargs.dark,
+        debug=pargs.debug, flat_file=pargs.flat, glow_file=pargs.glow,
+        time=pargs.exptime, verbose=not pargs.quiet)
