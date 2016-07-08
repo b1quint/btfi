@@ -22,7 +22,7 @@ NOTATIONS:
 print("\n%s" % ("-"*100))
 print("\n WELCOME ! ")
 print(" %s" % time.strftime('%a, %d %b %Y %H:%M:%S GMT'))
-print("\n     This program prepares your script to run on FP/SAMI")
+print("\n     This program prepares your script to phasemap_fit on FP/SAMI")
 
 interactive = True
 #interactive = False
@@ -55,8 +55,8 @@ INITIALISATION OF THE TWO SCRIPT FILES
     #dirtime = time.strftime('%Y%m%d')
     dirtime = "20160402"
     if interactive:
-        print("\n Data of the observing run. ")
-        print(" The date of the run (e.g. 20150130) will be automatically added to the address of the directory you will give now")
+        print("\n Data of the observing phasemap_fit. ")
+        print(" The date of the phasemap_fit (e.g. 20150130) will be automatically added to the address of the directory you will give now")
         sdir = raw_input(" Please, input the directory name (e.g.:/home2/images/): ")
         if sdir == "":
             sdir = '/home2/images/'
@@ -64,13 +64,13 @@ INITIALISATION OF THE TWO SCRIPT FILES
 
         print("     Your input is: %s" % sdir)
         print("     The data of the day will go into the directory : ", os.path.join(sdir, dirtime))
-        running = raw_input("\n Give the running directory name where you will put and run the script (e.g. 001): ")
+        running = raw_input("\n Give the running directory name where you will put and phasemap_fit the script (e.g. 001): ")
         running = str(running)
         sdir = os.path.join(sdir, dirtime, running)
         print("     The name of the directory where the script will be ran is : ",sdir)
     else:
         print(dirtime)
-        running = input("\n Give the running directory name where you will put and run the script (e.g. 001): ")
+        running = input("\n Give the running directory name where you will put and phasemap_fit the script (e.g. 001): ")
         #running="012"
         sdir = os.path.join("/home2/images/", dirtime, running)
 
@@ -534,11 +534,11 @@ SCAN MORE THAN ONE FSR ?
 
     Fichier.close()
 
-    print("\n     The name of the script you have to run on SAMI computer is : %s " % ttsh)
+    print("\n     The name of the script you have to phasemap_fit on SAMI computer is : %s " % ttsh)
     print("     Copy the following script to SAMI computer in the following directory : %s " % sdir)
     print("     NOTE: You have to pass by BTFIDR computer to have access to SAMI computer")
     print("     To copy the script from your computer to BTFI computer,")
-    print("     run the script \"scpbtfidr.sh\" which have been created now.")
+    print("     phasemap_fit the script \"scpbtfidr.sh\" which have been created now.")
     print("\n END OF THE PROGRAM")
     print(" %s" % ("-"*79))
 

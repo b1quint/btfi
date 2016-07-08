@@ -19,7 +19,7 @@ except ImportError:
 
     print("\n\tmkcube3 --")
     print("\tAstroPy module was not found in the system.")
-    print("\tIt is required to run this program.")
+    print("\tIt is required to phasemap_fit this program.")
     print("\tPlease, take a look at http://www.astropy.org/ for information")
     print("\tabout installing it on your system.")
     print("\n\tLeaving now.\n")

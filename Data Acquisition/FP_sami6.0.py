@@ -28,7 +28,7 @@ print("\n{}".format("-"*100))
 print("\n WELCOME ! ")
 #print(time.gmtime())
 print("    ",time.strftime('%a, %d %b %Y %H:%M:%S GMT'))
-print("\n     This program prepares your script to run on FP/SAMI")
+print("\n     This program prepares your script to phasemap_fit on FP/SAMI")
 #print("\n     START OF THE PROGRAM")
 
 interactive = True
@@ -65,13 +65,13 @@ INITIALISATION OF THE TWO SCRIPT FILES
 
     dirtime = time.strftime('%Y%m%d')
     if interactive:
-        print("\n Data of the observing run. ")
-        print(" The date of the run (e.g. 20150130) will be automatically added to the address of the directory you will give now")
+        print("\n Data of the observing phasemap_fit. ")
+        print(" The date of the phasemap_fit (e.g. 20150130) will be automatically added to the address of the directory you will give now")
         sdir = input(" Please, input the directory name (e.g.:/home2/images/fpsam/): ")
         #sdir = '/home2/images/20150616/003'
         print("     Your input is: {}".format(sdir))
         print("     The data of the day will go into the directory : ",sdir + dirtime + '/')
-        running = input("\n Give the running directory name where you will put and run the script (e.g. 001): ")
+        running = input("\n Give the running directory name where you will put and phasemap_fit the script (e.g. 001): ")
         print("     The name of the directory where the script will be ran is : ",sdir + dirtime + "/" + running)
     else:
         #dirtime = "20150317"
@@ -520,11 +520,11 @@ SCAN MORE THAN ONE FSR ?
 
     Fichier.close()
 
-    print("\n     The name of the script you have to run on SAMI computer is : ",ttsh)
+    print("\n     The name of the script you have to phasemap_fit on SAMI computer is : ",ttsh)
     print("     Copy the following script to SAMI computer in the following directory : ",sdir + '/')
     print("     NOTE: You have to pass by BTFIDR computer to have access to SAMI computer")
     print("     To copy the script from your computer to BTFI computer,")
-    print("     run the script \"scpbtfidr.sh\" which have been created now.")
+    print("     phasemap_fit the script \"scpbtfidr.sh\" which have been created now.")
     print("\n END OF THE PROGRAM")
     print("{}".format("-"*100))
 

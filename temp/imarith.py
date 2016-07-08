@@ -62,7 +62,7 @@ def get_fits_data(fits_name):
     except IOError:
         from sys import exit
         print("\n '%s' is not a valid FITS file." % fits_name)
-        print(" Please check it and run again.")
+        print(" Please check it and phasemap_fit again.")
         print(" Leaving now.\n")
         exit()
     return foo

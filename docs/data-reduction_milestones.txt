@@ -2,7 +2,7 @@ BTFI Data-Reduction Pipeline
 
 Data-reduction pipeline created to deal with BTFI data. It is under development and the main goal of this file is put
 together all the steps needed to get science data. The ideal is that the data-reduction process is modular, so each
-module can be run individually and interaction mode or automatic mode must also be an option.
+module can be phasemap_fit individually and interaction mode or automatic mode must also be an option.
 
 All the methods and classes and libraries and everything shall be written using Python and its standard packages. This
 is a requirement. Another requirement is that each module/class/etc must be documented, easy to use and easy to install.
@@ -20,7 +20,7 @@ By Bruno Quint - v0.1 - November 2013
  2. Choose between --reduce-it-all-- or --reduce-me-only--.
  2.1. Reduce it all: this option will reduce all the science data obtained in a single observing night.
  2.2. Reduce me only: this option will let the user to choose a single object to be reduced and data-reduction pipeline
-                      will run according to this data.
+                      will phasemap_fit according to this data.
 
  3. BIAS correction.
  3.1. Combine BIAS files using median and sigclip algorithm.

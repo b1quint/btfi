@@ -437,7 +437,7 @@ class cosmicsimage:
         It operates on self.cleanarray, and afterwards updates self.mask by adding the newly detected
         cosmics to the existing self.mask. Cleaning is not made automatically ! You have to call
         clean() after each iteration.
-        This way you can run it several times in a row to to L.A.Cosmic "iterations".
+        This way you can phasemap_fit it several times in a row to to L.A.Cosmic "iterations".
         See function lacosmic, that mimics the full iterative L.A.Cosmic algorithm.
 
         Returns a dict containing

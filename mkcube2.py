@@ -36,7 +36,7 @@ from __future__ import division, print_function
 
 def main():
     """
-    This is actually what happens when the program run.
+    This is actually what happens when the program phasemap_fit.
     """
 
     import argparse
